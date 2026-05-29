@@ -1,5 +1,6 @@
 #!/usr/bin/python3
-from queue import Queue
+from collections import deque
+import re
 import subprocess
 
 
@@ -52,36 +53,62 @@ allowedCommits = {
 
 # The following Git commit short-circuited the normal history.
 disallowedCommits = {
-    "6adfd9149629ca99f9a8e9771f8f587e96f1d83a", # Remove concurrency from validate workflow
-    "bebcb082418bfc5876889c2bd5de40a4c15065dc", # Enable concurrency for validate workflow
+    "6adfd9149629ca99f9a8e9771f8f587e96f1d83a",  # Remove concurrency from validate workflow
+    "bebcb082418bfc5876889c2bd5de40a4c15065dc",  # Enable concurrency for validate workflow
 }
+
 
 def isAllowed(item: GitItem):
     return (item.email in allowedEmails or item.id in allowedCommits) and item.id not in disallowedCommits
 
-headId = items[0].id
-firstId = items[-1].id
-bfs: Queue[str] = Queue()
-vis: set[str] = set()
-parent: dict[str, str] = {}
-bfs.put(headId)
-if not isAllowed(itemMap[headId]):
-    raise RuntimeError(f"Unexpected Head {headId}")
-while not bfs.empty():
-    id = bfs.get()
-    if id not in vis:
-        item = itemMap[id]
-        if isAllowed(item):
-            vis.add(id)
-            for childId in item.childIds:
-                if childId not in vis:
-                    parent[childId] = id
-                    lastId = id
-                    bfs.put(childId)
 
-id = firstId
-if id not in parent:
-    raise RuntimeError(f"Unexpected Tail {firstId}")
-while id in parent:
-    print(itemMap[id].id, itemMap[id].email, itemMap[id].subject)
-    id = parent[id]
+def bfs(headId: str, firstId: str):
+    bfs: deque[str] = deque()
+    vis: set[str] = set()
+    parent: dict[str, str] = {}
+    bfs.append(headId)
+    if not isAllowed(itemMap[headId]):
+        raise RuntimeError(f"Unexpected Head {headId}")
+    while len(bfs) > 0:
+        id = bfs.popleft()
+        if id not in vis:
+            item = itemMap[id]
+            if isAllowed(item):
+                vis.add(id)
+                for childId in item.childIds:
+                    if childId not in vis:
+                        parent[childId] = id
+                        bfs.append(childId)
+                        if childId == firstId:
+                            bfs.clear()
+                            break
+    id = firstId
+    if id not in parent:
+        raise RuntimeError(f"Unexpected Tail {headId}-{firstId}")
+    result: list[str] = []
+    while True:
+        result.append(id)
+        if id == headId:
+            return result
+        if id not in parent:
+            break
+        id = parent[id]
+    raise RuntimeError(f"Unexpected id={id} when finding {headId}-{firstId}")
+
+
+mergeItems: list[GitItem] = []
+commitRegex = r"Merge pull request #(\d+) from (.*)"
+for item in items:
+    if isAllowed(item):
+        match = re.match(commitRegex, item.subject)
+        if match is not None:
+            mergeItems.append(item)
+
+fullItems: list[GitItem] = [mergeItems[0]]
+for i in range(0, len(mergeItems)-1):
+    bfsResult = bfs(mergeItems[i].id, mergeItems[i+1].id)
+    for j in range(len(bfsResult)-2, -1, -1):
+        fullItems.append(itemMap[bfsResult[j]])
+fullItems.reverse()
+for item in fullItems:
+    print(item.id, item.email, item.subject)
