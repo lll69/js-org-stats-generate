@@ -358,7 +358,7 @@ filteredDict = generateFilteredDict()
 timeDict = generateTimeDict()
 timeDomains = generateTimeDomains()
 
-shutil.rmtree("dist")
+shutil.rmtree("dists", ignore_errors=True)
 os.makedirs("dist", exist_ok=True)
 
 with open("dist/cname.json", "w", encoding="utf-8") as file:
