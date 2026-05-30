@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 from collections import deque
+import json
 import re
 import subprocess
+from unidiff import PatchSet
 
 
 class GitItem:
@@ -14,7 +16,7 @@ class GitItem:
 
 
 originLine = subprocess.check_output(["/usr/bin/git", "-C", "js.org", "log", '--format=%at%n%H%n%P%n%ae%n%s%n'],
-                                     text=True, encoding="utf-8")
+                                     text=True, encoding="utf-8", errors="replace")
 originLines = originLine.splitlines()
 
 items: list[GitItem] = []
@@ -32,7 +34,7 @@ while i < len(originLines):
     i += 1
     subject = originLines[i]
     i += 2
-    item = GitItem(timestamp * 1000, id, childIds, email, subject)
+    item = GitItem(timestamp, id, childIds, email, subject)
     items.append(item)
     itemMap[id] = item
 
@@ -51,10 +53,14 @@ allowedCommits = {
     "641c1343d02de8831a66a539c7917b79187f52d0",  # marionette.js.org (#8514)
 }
 
-# The following Git commit short-circuited the normal history.
 disallowedCommits = {
+    # The following Git commits short-circuited the normal history.
     "6adfd9149629ca99f9a8e9771f8f587e96f1d83a",  # Remove concurrency from validate workflow
     "bebcb082418bfc5876889c2bd5de40a4c15065dc",  # Enable concurrency for validate workflow
+
+    # The following Git commits created duplicate records.
+    "a13e16d227b05b1344d9de9923fdeec98184eca9",  # cleanup and sort
+    "533ea491945c5a7d2393e6ba5998b8b14688287a",  # cleanup and sort
 }
 
 
@@ -97,18 +103,133 @@ def bfs(headId: str, firstId: str):
 
 
 mergeItems: list[GitItem] = []
-commitRegex = r"Merge pull request #(\d+) from (.*)"
+commitRegex = re.compile(r"Merge pull request #(\d+) from (.*)")
 for item in items:
     if isAllowed(item):
         match = re.match(commitRegex, item.subject)
         if match is not None:
             mergeItems.append(item)
+mergeItems.append(itemMap["86da41b2e348bac3e49056ab9e3296a57a322206"])  # Initial commit
 
-fullItems: list[GitItem] = [mergeItems[0]]
-for i in range(0, len(mergeItems)-1):
-    bfsResult = bfs(mergeItems[i].id, mergeItems[i+1].id)
-    for j in range(len(bfsResult)-2, -1, -1):
+fullItems: list[GitItem] = [mergeItems[-1]]
+for i in range(len(mergeItems) - 2, -1, -1):
+    bfsResult = bfs(mergeItems[i].id, mergeItems[i + 1].id)
+    for j in range(1, len(bfsResult)):
         fullItems.append(itemMap[bfsResult[j]])
-fullItems.reverse()
-for item in fullItems:
-    print(item.id, item.email, item.subject)
+
+cnameRegex = re.compile(r',?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*("[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?://\s*(.+))?')
+nsRegex = re.compile(r',?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*(\[.+\])\s*,?\s*(//.+)?')
+cnameDict: dict[str, dict] = {}
+
+
+def addCnameItem(name: str, itemType: str, server, comment, item: GitItem):
+    if name not in cnameDict:
+        dictItem = {}
+        dictItem["name"] = name
+        dictItem["history"] = []
+        cnameDict[name] = dictItem
+    else:
+        dictItem = cnameDict[name]
+    historyItems = dictItem["history"]
+
+    for historyItem in historyItems:
+        if historyItem["commit"] == item.id:
+            if type(historyItem["server"]) != list and type(server) == list:
+                # cname -> ns
+                historyItem["server"] = server
+                historyItem["type"] = itemType
+                return
+            elif type(historyItem["server"]) == list and type(server) == str:
+                # ns -> cname (possible?)
+                historyItem["server"] = server
+                historyItem["type"] = itemType
+                return
+            elif type(server) == str:
+                # mina.js.org has duplicated records
+                if type(historyItem["server"]) != list:
+                    historyItem["server"] = [historyItem["server"]]
+                historyItem["server"].append(server)
+                historyItem["type"] = itemType
+                return
+            else:
+                raise RuntimeError("Unknown duplicated records in commit", item.id)
+
+    historyItem = {}
+    dictItem["history"].append(historyItem)
+    historyItem["time"] = item.time
+    historyItem["type"] = itemType
+    historyItem["server"] = server
+    historyItem["comment"] = comment
+    historyItem["commit"] = item.id
+    pushMatch = re.match(commitRegex, item.subject)
+    if pushMatch is None:
+        historyItem["pull"] = None
+    else:
+        historyItem["pull"] = pushMatch.group(1)
+
+
+for i in range(1, len(fullItems)):
+    gitItem = fullItems[i]
+    originDiff = subprocess.check_output([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "diff",
+        fullItems[i - 1].id,
+        gitItem.id,
+        "--",
+        "cnames_active.js",
+        "ns_active.js"
+    ], text=True, encoding="utf-8", errors="replace")
+    parsedDiff = PatchSet.from_string(originDiff)
+    for file in parsedDiff:
+        addItems = []
+        removeItems = []
+        addItemsRemoved = []  # avoid duplicated records
+        removeItemsRemoved = []
+        for patch in file:
+            for line in patch:
+                if line.is_added or line.is_removed:
+                    lineStr = line.value.strip()
+                    if "mina\"" in lineStr:
+                        breakpoint = 0
+                    if file.target_file == "b/cnames_active.js":
+                        match = re.match(cnameRegex, lineStr)
+                        if match is None:
+                            continue
+                        name: str = json.loads(match.group(1))
+                        server: str = json.loads(match.group(2))
+                        comment = match.group(3)
+                        if line.is_added:
+                            addItems.append([name, server, comment, "cname"])
+                        else:
+                            removeItems.append([name, server, comment, "remove"])
+                    elif file.target_file == "b/ns_active.js":
+                        match = re.match(nsRegex, lineStr)
+                        if match is None:
+                            continue
+                        name: str = json.loads(match.group(1))
+                        servers: list[str] = json.loads(match.group(2))
+                        comment = match.group(3)
+                        if line.is_added:
+                            addItems.append([name, servers, comment, "ns"])
+                        else:
+                            removeItems.append([name, servers, comment, "remove"])
+        for item in removeItems:
+            for addItem in addItems:
+                if addItem[0] == item[0]:
+                    if addItem[1] == item[1] and addItem[2] == item[2]:
+                        # indention and sorting
+                        addItemsRemoved.append(addItem)
+                    # else: modify cname/comment
+                    removeItemsRemoved.append(item)
+                    break
+        for item in addItems:
+            if item not in addItemsRemoved:
+                addCnameItem(item[0], item[3], item[1], item[2], gitItem)
+        for item in removeItems:
+            if item not in removeItemsRemoved:
+                addCnameItem(item[0], item[3], None, None, gitItem)
+
+with open("cname.json", "w", encoding="utf-8") as file:
+    file.write(json.dumps(cnameDict, indent=0))
