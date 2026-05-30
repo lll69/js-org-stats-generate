@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 from collections import deque
 import json
+import os
 import re
+import shutil
 import subprocess
 from unidiff import PatchSet
 
@@ -165,71 +167,210 @@ def addCnameItem(name: str, itemType: str, server, comment, item: GitItem):
     if pushMatch is None:
         historyItem["pull"] = None
     else:
-        historyItem["pull"] = pushMatch.group(1)
+        historyItem["pull"] = int(pushMatch.group(1))
 
 
-for i in range(1, len(fullItems)):
-    gitItem = fullItems[i]
-    originDiff = subprocess.check_output([
-        "/usr/bin/git",
-        "-C",
-        "js.org",
-        "diff",
-        fullItems[i - 1].id,
-        gitItem.id,
-        "--",
-        "cnames_active.js",
-        "ns_active.js"
-    ], text=True, encoding="utf-8", errors="replace")
-    parsedDiff = PatchSet.from_string(originDiff)
-    for file in parsedDiff:
-        addItems = []
-        removeItems = []
-        addItemsRemoved = []  # avoid duplicated records
-        removeItemsRemoved = []
-        for patch in file:
-            for line in patch:
-                if line.is_added or line.is_removed:
-                    lineStr = line.value.strip()
-                    if "mina\"" in lineStr:
-                        breakpoint = 0
-                    if file.target_file == "b/cnames_active.js":
-                        match = re.match(cnameRegex, lineStr)
-                        if match is None:
-                            continue
-                        name: str = json.loads(match.group(1))
-                        server: str = json.loads(match.group(2))
-                        comment = match.group(3)
-                        if line.is_added:
-                            addItems.append([name, server, comment, "cname"])
-                        else:
-                            removeItems.append([name, server, comment, "remove"])
-                    elif file.target_file == "b/ns_active.js":
-                        match = re.match(nsRegex, lineStr)
-                        if match is None:
-                            continue
-                        name: str = json.loads(match.group(1))
-                        servers: list[str] = json.loads(match.group(2))
-                        comment = match.group(3)
-                        if line.is_added:
-                            addItems.append([name, servers, comment, "ns"])
-                        else:
-                            removeItems.append([name, servers, comment, "remove"])
-        for item in removeItems:
-            for addItem in addItems:
-                if addItem[0] == item[0]:
-                    if addItem[1] == item[1] and addItem[2] == item[2]:
-                        # indention and sorting
-                        addItemsRemoved.append(addItem)
-                    # else: modify cname/comment
-                    removeItemsRemoved.append(item)
-                    break
-        for item in addItems:
-            if item not in addItemsRemoved:
-                addCnameItem(item[0], item[3], item[1], item[2], gitItem)
-        for item in removeItems:
-            if item not in removeItemsRemoved:
-                addCnameItem(item[0], item[3], None, None, gitItem)
+def parseFullItems():
+    for i in range(1, len(fullItems)):
+        gitItem = fullItems[i]
+        originDiff = subprocess.check_output([
+            "/usr/bin/git",
+            "-C",
+            "js.org",
+            "diff",
+            fullItems[i - 1].id,
+            gitItem.id,
+            "--",
+            "cnames_active.js",
+            "ns_active.js"
+        ], text=True, encoding="utf-8", errors="replace")
+        parsedDiff = PatchSet.from_string(originDiff)
+        for file in parsedDiff:
+            addItems = []
+            removeItems = []
+            addItemsRemoved = []  # avoid duplicated records
+            removeItemsRemoved = []
+            for patch in file:
+                for line in patch:
+                    if line.is_added or line.is_removed:
+                        lineStr = line.value.strip()
+                        if "mina\"" in lineStr:
+                            breakpoint = 0
+                        if file.target_file == "b/cnames_active.js":
+                            match = re.match(cnameRegex, lineStr)
+                            if match is None:
+                                continue
+                            name: str = json.loads(match.group(1))
+                            server: str = json.loads(match.group(2))
+                            comment = match.group(3)
+                            if line.is_added:
+                                addItems.append([name, server, comment, "cname"])
+                            else:
+                                removeItems.append([name, server, comment, "remove"])
+                        elif file.target_file == "b/ns_active.js":
+                            match = re.match(nsRegex, lineStr)
+                            if match is None:
+                                continue
+                            name: str = json.loads(match.group(1))
+                            servers: list[str] = json.loads(match.group(2))
+                            comment = match.group(3)
+                            if line.is_added:
+                                addItems.append([name, servers, comment, "ns"])
+                            else:
+                                removeItems.append([name, servers, comment, "remove"])
+            for item in removeItems:
+                for addItem in addItems:
+                    if addItem[0] == item[0]:
+                        if addItem[1] == item[1] and addItem[2] == item[2]:
+                            # indention and sorting
+                            addItemsRemoved.append(addItem)
+                        # else: modify cname/comment
+                        removeItemsRemoved.append(item)
+                        break
+            for item in addItems:
+                if item not in addItemsRemoved:
+                    addCnameItem(item[0], item[3], item[1], item[2], gitItem)
+            for item in removeItems:
+                if item not in removeItemsRemoved:
+                    addCnameItem(item[0], item[3], None, None, gitItem)
 
-with open("cname.json", "w", encoding="utf-8") as file:
-    file.write(json.dumps(cnameDict, indent=0))
+
+def sortDict(inDict: dict):
+    sortedList = list(inDict.items())
+    sortedList.sort(key=lambda item: len(item[1]), reverse=True)
+    outDict: dict = {}
+    for item in sortedList:
+        outDict[item[0]] = item[1]
+    return outDict
+
+
+def generateCommitItems():
+    commitItems: dict[str, list[str]] = {}
+    for item in cnameDict.values():
+        for historyItem in item["history"]:
+            id = historyItem["commit"]
+            if id in commitItems:
+                commitItem = commitItems[id]
+            else:
+                commitItem = []
+                commitItems[id] = commitItem
+            commitItem.append(item["name"])
+    return sortDict(commitItems)
+
+
+def generateCnameStat():
+    cnameStat: dict[str, list[str]] = {}
+    for item in cnameDict.values():
+        historyItem = item["history"][-1]
+        server = historyItem["server"]
+        if type(server) != str:
+            continue
+        cname = server.split("/")[0]
+        if cname.endswith(".github.io"):
+            mappedCname = "github.io"
+        elif cname.endswith(".pages.dev"):
+            mappedCname = "pages.dev"
+        elif cname.endswith(".gitlab.io"):
+            mappedCname = "gitlab.io"
+        elif cname.endswith(".gitbook.io"):
+            mappedCname = "gitbook.io"
+        elif cname.endswith(".vercel.app") or cname.endswith(".vercel-dns.com"):
+            mappedCname = "vercel"
+        elif cname.endswith(".netlify.app") or cname.endswith(".netlify.com"):
+            mappedCname = "netlify"
+        else:
+            mappedCname = cname
+        if mappedCname in cnameStat:
+            statItem = cnameStat[mappedCname]
+        else:
+            statItem = []
+            cnameStat[mappedCname] = statItem
+        statItem.append(item["name"])
+    return sortDict(cnameStat)
+
+
+def generateFilteredDict():
+    filteredDict: dict[str, dict] = {}
+    for item in cnameDict.values():
+        name: str = item["name"]
+        if len(name) == 0:
+            continue
+        firstStr = name[0].lower()
+        if not ('a' <= firstStr[0] <= 'z'):
+            firstStr = 'z'
+        if firstStr in filteredDict:
+            filteredItem = filteredDict[firstStr]
+        else:
+            filteredItem = {}
+            filteredDict[firstStr] = filteredItem
+        filteredItem[item["name"]] = item
+    return sortDict(filteredDict)
+
+
+def isRemoveHistory(item):
+    return item["type"] == "remove"
+
+
+def generateTimeDict():
+    timeArray: list[int] = []
+    for item in cnameDict.values():
+        historyItems = item["history"]
+        for i in range(len(historyItems)):
+            historyItem = historyItems[i]
+            if isRemoveHistory(historyItem) and (i == 0 or not isRemoveHistory(historyItems[i - 1])):
+                timeArray.append(-historyItem["time"])
+            elif (not isRemoveHistory(historyItem)) and (i == 0 or isRemoveHistory(historyItems[i - 1])):
+                timeArray.append(historyItem["time"])
+    timeArray.sort(key=abs)
+    resultArray = []
+    i = 0
+    length = len(timeArray) - 1
+    while i < length:
+        count = 1
+        time = timeArray[i]
+        while timeArray[i + 1] == time:
+            i += 1
+            count += 1
+        if count == 1:
+            resultArray.append(time)
+        else:
+            resultArray.append([time, count])
+        i += 1
+    return resultArray
+
+
+def generateTimeDomains():
+    timeDomains: dict[str, int] = {}
+    for item in cnameDict.values():
+        timeDomains[item["name"]] = item["history"][0]["time"]
+    return timeDomains
+
+
+parseFullItems()
+commitItems = generateCommitItems()
+cnameStat = generateCnameStat()
+filteredDict = generateFilteredDict()
+timeDict = generateTimeDict()
+timeDomains = generateTimeDomains()
+
+shutil.rmtree("dist")
+os.makedirs("dist", exist_ok=True)
+
+with open("dist/cname.json", "w", encoding="utf-8") as file:
+    file.write(json.dumps(cnameDict, separators=(',', ':'), indent=1))
+
+with open("dist/commit.json", "w", encoding="utf-8") as file:
+    file.write(json.dumps(commitItems, separators=(',', ':'), indent=1))
+
+with open("dist/stat.json", "w", encoding="utf-8") as file:
+    file.write(json.dumps(cnameStat, separators=(',', ':'), indent=1))
+
+for [firstStr, items] in filteredDict.items():
+    with open(f"dist/{firstStr}.json", "w", encoding="utf-8") as file:
+        file.write(json.dumps(items, separators=(',', ':'), ensure_ascii=False))
+
+with open("dist/time.json", "w", encoding="utf-8") as file:
+    file.write(json.dumps(timeDict, separators=(',', ':'), ensure_ascii=False))
+
+with open("dist/creation.json", "w", encoding="utf-8") as file:
+    file.write(json.dumps(timeDomains, separators=(',', ':'), ensure_ascii=False))
