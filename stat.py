@@ -19,7 +19,6 @@ class GitItem:
 
 
 updateTime = datetime.datetime.now().astimezone(datetime.timezone.utc)
-updateTime
 
 originLine = subprocess.check_output(["/usr/bin/git", "-C", "js.org", "log", '--format=%at%n%H%n%P%n%ae%n%s%n'],
                                      text=True, encoding="utf-8", errors="replace")
@@ -340,11 +339,13 @@ def generateTimeDict():
         else:
             resultArray.append([time, count])
         i += 1
-    return resultArray
+    resultDict: dict = {"^updateTime": int(updateTime.timestamp())}
+    resultDict["data"] = resultArray
+    return resultDict
 
 
 def generateTimeDomains():
-    timeDomains: dict[str, int] = {}
+    timeDomains: dict[str, int] = {"^updateTime": int(updateTime.timestamp())}
     for item in cnameDict.values():
         if item["history"][-1]["type"] != "remove":
             timeDomains[item["name"]] = item["history"][0]["time"]
@@ -358,17 +359,26 @@ filteredDict = generateFilteredDict()
 timeDict = generateTimeDict()
 timeDomains = generateTimeDomains()
 
-shutil.rmtree("dists", ignore_errors=True)
+shutil.rmtree("dist", ignore_errors=True)
 os.makedirs("dist", exist_ok=True)
 
 with open("dist/cname.json", "w", encoding="utf-8") as file:
-    file.write(json.dumps(cnameDict, separators=(',', ':'), indent=1))
+    cnameDictWithTime: dict = {"^updateTime": int(updateTime.timestamp())}
+    cnameDictWithTime.update(cnameDict)
+    file.write(json.dumps(cnameDictWithTime, separators=(',', ':'), indent=1))
+    del cnameDictWithTime
 
 with open("dist/commit.json", "w", encoding="utf-8") as file:
-    file.write(json.dumps(commitItems, separators=(',', ':'), indent=1))
+    commitItemsWithTime: dict = {"^updateTime": int(updateTime.timestamp())}
+    commitItemsWithTime.update(commitItems)
+    file.write(json.dumps(commitItemsWithTime, separators=(',', ':'), indent=1))
+    del commitItemsWithTime
 
 with open("dist/stat.json", "w", encoding="utf-8") as file:
-    file.write(json.dumps(cnameStat, separators=(',', ':'), indent=1))
+    cnameStatWithTime = {"^updateTime": int(updateTime.timestamp())}
+    cnameStatWithTime.update(cnameStat)
+    file.write(json.dumps(cnameStatWithTime, separators=(',', ':'), indent=1))
+    del cnameStatWithTime
 
 with open("dist/statSimple.json", "w", encoding="utf-8") as file:
     cnameStatSimple = {"^updateTime": int(updateTime.timestamp())}
@@ -381,11 +391,10 @@ for [firstStr, item] in filteredDict.items():
         item["^updateTime"] = int(updateTime.timestamp())
         file.write(json.dumps(item, separators=(',', ':'), ensure_ascii=False))
 
-with open("dist/time.json", "w", encoding="utf-8") as file:
+with open("dist/times.json", "w", encoding="utf-8") as file:
     file.write(json.dumps(timeDict, separators=(',', ':'), ensure_ascii=False))
 
 with open("dist/live.json", "w", encoding="utf-8") as file:
-    timeDomains["^updateTime"] = int(updateTime.timestamp())
     file.write(json.dumps(timeDomains, separators=(',', ':'), ensure_ascii=False))
 
 # stats
@@ -393,3 +402,4 @@ with open("dist/README.md", "w", encoding="utf-8") as file:
     file.write("# JS.ORG Stats\n")
     file.write(f"- **Updated time:** {updateTime.isoformat()}\n")
     file.write(f"- **Total subdomains:** {len(cnameDict)}\n")
+    file.write(f"- **Live subdomains:** {len(timeDomains) - 1}\n")  # remove `^updateTime`
