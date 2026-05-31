@@ -327,11 +327,11 @@ def generateTimeDict():
     timeArray.sort(key=abs)
     resultArray = []
     i = 0
-    length = len(timeArray) - 1
+    length = len(timeArray)
     while i < length:
         count = 1
         time = timeArray[i]
-        while timeArray[i + 1] == time:
+        while i + 1 < length and timeArray[i + 1] == time:
             i += 1
             count += 1
         if count == 1:
