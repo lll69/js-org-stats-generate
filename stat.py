@@ -314,16 +314,25 @@ def isRemoveHistory(item):
     return item["type"] == "remove"
 
 
-def generateTimeDict():
+def generateTimeDicts():
     timeArray: list[int] = []
+    timedDict: dict[int, dict] = {}
     for item in cnameDict.values():
         historyItems = item["history"]
         for i in range(len(historyItems)):
             historyItem = historyItems[i]
+            year = datetime.datetime.fromtimestamp(historyItem["time"], datetime.UTC).year
+            if year in timedDict:
+                timedDictItem = timedDict[year]
+            else:
+                timedDictItem = {}
+                timedDict[year] = timedDictItem
             if isRemoveHistory(historyItem) and (i == 0 or not isRemoveHistory(historyItems[i - 1])):
                 timeArray.append(-historyItem["time"])
+                timedDictItem[-historyItem["time"]] = item["name"]
             elif (not isRemoveHistory(historyItem)) and (i == 0 or isRemoveHistory(historyItems[i - 1])):
                 timeArray.append(historyItem["time"])
+                timedDictItem[historyItem["time"]] = item["name"]
     timeArray.sort(key=abs)
     resultArray = []
     i = 0
@@ -341,7 +350,7 @@ def generateTimeDict():
         i += 1
     resultDict: dict = {"^updateTime": int(updateTime.timestamp())}
     resultDict["data"] = resultArray
-    return resultDict
+    return (resultDict, timedDict)
 
 
 def generateTimeDomains():
@@ -356,7 +365,7 @@ parseFullItems()
 commitItems = generateCommitItems()
 cnameStat = generateCnameStat()
 filteredDict = generateFilteredDict()
-timeDict = generateTimeDict()
+timeDict, timedDict = generateTimeDicts()
 timeDomains = generateTimeDomains()
 
 shutil.rmtree("dist", ignore_errors=True)
@@ -393,6 +402,10 @@ for [firstStr, item] in filteredDict.items():
 
 with open("dist/times.json", "w", encoding="utf-8") as file:
     file.write(json.dumps(timeDict, separators=(',', ':'), ensure_ascii=False))
+
+for [year, timedItem] in timedDict.items():
+    with open(f"dist/year{year}.json", "w", encoding="utf-8") as file:
+        file.write(json.dumps(timedItem, separators=(',', ':'), ensure_ascii=False))
 
 with open("dist/live.json", "w", encoding="utf-8") as file:
     file.write(json.dumps(timeDomains, separators=(',', ':'), ensure_ascii=False))
