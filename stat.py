@@ -325,7 +325,7 @@ def generateTimeDicts():
             if year in timedDict:
                 timedDictItem = timedDict[year]
             else:
-                timedDictItem = {}
+                timedDictItem = {"^updateTime": int(updateTime.timestamp())}
                 timedDict[year] = timedDictItem
             if isRemoveHistory(historyItem) and (i == 0 or not isRemoveHistory(historyItems[i - 1])):
                 timeArray.append(-historyItem["time"])
