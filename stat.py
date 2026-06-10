@@ -325,14 +325,30 @@ def generateTimeDicts():
             if year in timedDict:
                 timedDictItem = timedDict[year]
             else:
-                timedDictItem = {"^updateTime": int(updateTime.timestamp())}
+                timedDictItem: dict = {"^updateTime": int(updateTime.timestamp())}
                 timedDict[year] = timedDictItem
             if isRemoveHistory(historyItem) and (i == 0 or not isRemoveHistory(historyItems[i - 1])):
-                timeArray.append(-historyItem["time"])
-                timedDictItem[-historyItem["time"]] = item["name"]
+                time = -historyItem["time"]
+                timeArray.append(time)
+                if time in timedDictItem:
+                    timedItem = timedDictItem[time]
+                    if type(timedItem) == list:
+                        timedItem.append(item["name"])
+                    else:
+                        timedDictItem[time] = [timedItem, item["name"]]
+                else:
+                    timedDictItem[time] = item["name"]
             elif (not isRemoveHistory(historyItem)) and (i == 0 or isRemoveHistory(historyItems[i - 1])):
-                timeArray.append(historyItem["time"])
-                timedDictItem[historyItem["time"]] = item["name"]
+                time = historyItem["time"]
+                timeArray.append(time)
+                if time in timedDictItem:
+                    timedItem = timedDictItem[time]
+                    if type(timedItem) == list:
+                        timedItem.append(item["name"])
+                    else:
+                        timedDictItem[time] = [timedItem, item["name"]]
+                else:
+                    timedDictItem[time] = item["name"]
     timeArray.sort(key=abs)
     resultArray = []
     i = 0
@@ -350,6 +366,10 @@ def generateTimeDicts():
         i += 1
     resultDict: dict = {"^updateTime": int(updateTime.timestamp())}
     resultDict["data"] = resultArray
+    for timedDictItem in timedDict.values():
+        for timedItem in timedDictItem.values():
+            if type(timedItem) == list:
+                timedItem.sort()
     return (resultDict, timedDict)
 
 
