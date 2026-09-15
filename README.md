@@ -10,3 +10,4 @@ Stats for js.org
 * Commit [641c134](https://github.com/js-org/js.org/commit/641c1343d02de8831a66a539c7917b79187f52d0) was incorrectly merged into the js.org repo.
 * Commit [ce463b0](https://github.com/js-org/js.org/commit/ce463b0d94534df03715974264a0ca568649538a) has duplicated records.
 * Commit [1b1ad69](https://github.com/js-org/js.org/commit/1b1ad69946efbd1de8faa1ecbe45677200361711) modified 91 domains from netlify.com to netlify.app.
+* Commit [db6e0d2](https://github.com/js-org/js.org/commit/db6e0d2d71c20f02dea10e70b4b68ee770e3f1d5), [328b71b](https://github.com/js-org/js.org/commit/328b71bd15dbeb84707afd9019191d8889d3f18e), [2409e86](https://github.com/js-org/js.org/commit/2409e868b9a45ede8b11065c21d03e462c458943) were incorrectly merged into the js.org repo.
