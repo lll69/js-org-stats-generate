@@ -55,10 +55,10 @@ allowedEmails = {
 
 # The following Git commits were directly merged into the js.org repo, and we must address this.
 allowedCommits = {
-    "641c1343d02de8831a66a539c7917b79187f52d0",  # marionette.js.org (#8514) <paul@otterball.com>
-    "db6e0d2d71c20f02dea10e70b4b68ee770e3f1d5",  # add blackbird.js.org subdomain mapping <arindamdutta132@gmail.com>
-    "328b71bd15dbeb84707afd9019191d8889d3f18e",  # Update cnames_active.js with correct tag <arindamdutta132@gmail.com>
-    "2409e868b9a45ede8b11065c21d03e462c458943",  # Update cnames_active.js <gmrafiweb@gmrafi.com>
+    "641c1343d02de8831a66a539c7917b79187f52d0": 8514,  # marionette.js.org (#8514) <paul@otterball.com>
+    "db6e0d2d71c20f02dea10e70b4b68ee770e3f1d5": None,  # add blackbird.js.org subdomain mapping <arindamdutta132@gmail.com>
+    "328b71bd15dbeb84707afd9019191d8889d3f18e": 12432,  # Update cnames_active.js with correct tag <arindamdutta132@gmail.com>
+    "2409e868b9a45ede8b11065c21d03e462c458943": 12441,  # Update cnames_active.js <gmrafiweb@gmrafi.com>
 }
 
 disallowedCommits = {
@@ -171,7 +171,10 @@ def addCnameItem(name: str, itemType: str, server, comment, item: GitItem):
     historyItem["commit"] = item.id
     pushMatch = re.match(commitRegex, item.subject)
     if pushMatch is None:
-        historyItem["pull"] = None
+        if item.id in allowedCommits:
+            historyItem["pull"] = allowedCommits[item.id]
+        else:
+            historyItem["pull"] = None
     else:
         historyItem["pull"] = int(pushMatch.group(1))
 
