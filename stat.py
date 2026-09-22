@@ -20,7 +20,7 @@ class GitItem:
 
 updateTime = datetime.datetime.now().astimezone(datetime.timezone.utc)
 
-originLine = subprocess.check_output(["/usr/bin/git", "-C", "js.org", "log", '--format=%at%n%H%n%P%n%ae%n%s%n'],
+originLine = subprocess.check_output(["/usr/bin/git", "-C", "js.org", "log", "--format=%at%n%H%n%P%n%ae%n%s%n"],
                                      text=True, encoding="utf-8", errors="replace")
 originLines = originLine.splitlines()
 
@@ -269,26 +269,34 @@ def generateCommitItems():
 
 def generateCnameStat():
     cnameStat: dict[str, list[str]] = {}
+    resolveDomains = [
+        "github.io",
+        "pages.dev",
+        "gitlab.io",
+        "gitbook.io",
+        "gitbooks.io",
+        "alwaysdata.net",
+        "surge.sh",
+        "onrender.com",
+        "azurestaticapps.net",
+    ]
     for item in cnameDict.values():
         historyItem = item["history"][-1]
         server = historyItem["server"]
         if type(server) != str:
             continue
         cname = server.split("/")[0]
-        if cname.endswith(".github.io"):
-            mappedCname = "github.io"
-        elif cname.endswith(".pages.dev"):
-            mappedCname = "pages.dev"
-        elif cname.endswith(".gitlab.io"):
-            mappedCname = "gitlab.io"
-        elif cname.endswith(".gitbook.io"):
-            mappedCname = "gitbook.io"
-        elif cname.endswith(".vercel.app") or cname.endswith(".vercel-dns.com"):
+        if cname.endswith(".vercel.app") or cname.endswith(".vercel-dns.com") or cname.endswith(".zeit.co") or cname.endswith(".now.sh"):
             mappedCname = "vercel"
         elif cname.endswith(".netlify.app") or cname.endswith(".netlify.com"):
             mappedCname = "netlify"
         else:
-            mappedCname = cname
+            for domain in resolveDomains:
+                if cname.endswith("." + domain):
+                    mappedCname = domain
+                    break
+            else:
+                mappedCname = cname
         if mappedCname in cnameStat:
             statItem = cnameStat[mappedCname]
         else:
@@ -305,8 +313,8 @@ def generateFilteredDict():
         if len(name) == 0:
             continue
         firstStr = name[0].lower()
-        if not ('a' <= firstStr[0] <= 'z'):
-            firstStr = 'z'
+        if not ("a" <= firstStr[0] <= "z"):
+            firstStr = "z"
         if firstStr in filteredDict:
             filteredItem = filteredDict[firstStr]
         else:
@@ -400,41 +408,41 @@ os.makedirs("dist", exist_ok=True)
 with open("dist/cname.json", "w", encoding="utf-8") as file:
     cnameDictWithTime: dict = {"^updateTime": int(updateTime.timestamp())}
     cnameDictWithTime.update(cnameDict)
-    file.write(json.dumps(cnameDictWithTime, separators=(',', ':'), indent=1))
+    file.write(json.dumps(cnameDictWithTime, separators=(",", ":"), indent=1))
     del cnameDictWithTime
 
 with open("dist/commit.json", "w", encoding="utf-8") as file:
     commitItemsWithTime: dict = {"^updateTime": int(updateTime.timestamp())}
     commitItemsWithTime.update(commitItems)
-    file.write(json.dumps(commitItemsWithTime, separators=(',', ':'), indent=1))
+    file.write(json.dumps(commitItemsWithTime, separators=(",", ":"), indent=1))
     del commitItemsWithTime
 
 with open("dist/stat.json", "w", encoding="utf-8") as file:
     cnameStatWithTime = {"^updateTime": int(updateTime.timestamp())}
     cnameStatWithTime.update(cnameStat)
-    file.write(json.dumps(cnameStatWithTime, separators=(',', ':'), indent=1))
+    file.write(json.dumps(cnameStatWithTime, separators=(",", ":"), indent=1))
     del cnameStatWithTime
 
 with open("dist/statSimple.json", "w", encoding="utf-8") as file:
     cnameStatSimple = {"^updateTime": int(updateTime.timestamp())}
     for item in cnameStat.keys():
         cnameStatSimple[item] = len(cnameStat[item])
-    file.write(json.dumps(cnameStatSimple, separators=(',', ':'), ensure_ascii=False))
+    file.write(json.dumps(cnameStatSimple, separators=(",", ":"), ensure_ascii=False))
 
 for [firstStr, item] in filteredDict.items():
     with open(f"dist/{firstStr}.json", "w", encoding="utf-8") as file:
         item["^updateTime"] = int(updateTime.timestamp())
-        file.write(json.dumps(item, separators=(',', ':'), ensure_ascii=False))
+        file.write(json.dumps(item, separators=(",", ":"), ensure_ascii=False))
 
 with open("dist/times.json", "w", encoding="utf-8") as file:
-    file.write(json.dumps(timeDict, separators=(',', ':'), ensure_ascii=False))
+    file.write(json.dumps(timeDict, separators=(",", ":"), ensure_ascii=False))
 
 for [year, timedItem] in timedDict.items():
     with open(f"dist/year{year}.json", "w", encoding="utf-8") as file:
-        file.write(json.dumps(timedItem, separators=(',', ':'), ensure_ascii=False))
+        file.write(json.dumps(timedItem, separators=(",", ":"), ensure_ascii=False))
 
 with open("dist/live.json", "w", encoding="utf-8") as file:
-    file.write(json.dumps(timeDomains, separators=(',', ':'), ensure_ascii=False))
+    file.write(json.dumps(timeDomains, separators=(",", ":"), ensure_ascii=False))
 
 # stats
 with open("dist/README.md", "w", encoding="utf-8") as file:
