@@ -328,6 +328,20 @@ def isRemoveHistory(item):
     return item["type"] == "remove"
 
 
+def generatePrTimeArray():
+    timeArray = []
+    baseDir = "dist/pulls/"
+    for name in os.listdir(baseDir):
+        if not name.endswith(".json"):
+            continue
+        with open(baseDir + name, "r", encoding="utf-8") as file:
+            data = json.load(file)
+        for prData in data.values():
+            timeArray.append(int(datetime.datetime.fromisoformat(prData["create"]).timestamp()))
+    timeArray = list(sorted(timeArray))
+    return timeArray
+
+
 def generateTimeDicts():
     timeArray: list[int] = []
     timedDict: dict[int, dict] = {}
@@ -380,6 +394,7 @@ def generateTimeDicts():
         i += 1
     resultDict: dict = {"^updateTime": int(updateTime.timestamp())}
     resultDict["data"] = resultArray
+    resultDict["prData"] = generatePrTimeArray()
     for timedDictItem in timedDict.values():
         for timedItem in timedDictItem.values():
             if type(timedItem) == list:
@@ -402,7 +417,7 @@ filteredDict = generateFilteredDict()
 timeDict, timedDict = generateTimeDicts()
 timeDomains = generateTimeDomains()
 
-shutil.rmtree("dist", ignore_errors=True)
+# shutil.rmtree("dist", ignore_errors=True)
 os.makedirs("dist", exist_ok=True)
 
 with open("dist/cname.json", "w", encoding="utf-8") as file:
