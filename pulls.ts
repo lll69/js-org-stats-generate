@@ -78,7 +78,7 @@ async function input(question: string): Promise<string> {
             minPullNum = Math.min(pullNum, minPullNum);
             maxPullNum = Math.max(pullNum, maxPullNum);
 
-            const pullDir = String(pullNum / 100);
+            const pullDir = String(Math.floor(pullNum / 100));
             if (!pullsData.hasOwnProperty(pullDir))
                 pullsData[pullDir] = {}
             pullsData[pullDir][pullNum] = {
