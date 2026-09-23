@@ -1,7 +1,8 @@
 {
   "devDependencies": {
-    "@types/node": "20.19.43",
     "@datastructures-js/deque": "1.0.4",
+    "@types/node": "20.19.43",
+    "diff": "8.0.4",
     "tsx": "4.20.0",
     "typescript": "5.8.3"
   }
