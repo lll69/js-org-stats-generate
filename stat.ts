@@ -1,188 +1,223 @@
-#!/usr/bin/python3
-from collections import deque
-import datetime
-import json
-import os
-import re
-import shutil
-import subprocess
-from unidiff import PatchSet
+import { spawnSync } from "node:child_process";
+import { Deque } from "@datastructures-js/deque";
+import { parsePatch } from "diff";
 
+type HistoryItem = {
+    "time": number,
+    "type": string,
+    "server": string | string[],
+    "comment": string | null,
+    "commit": string | null,
+    "pull": number | null,
+};
 
-class GitItem:
-    def __init__(self, time: int, id: str, childIds: list[str], email: str, subject: str):
-        self.time = time
-        self.id = id
-        self.childIds = childIds
-        self.email = email
-        self.subject = subject
+class GitItem {
+    time: number;
+    id: string;
+    childIds: string[];
+    email: string;
+    subject: string;
 
+    constructor(time: number, id: string, childIds: string[], email: string, subject: string) {
+        this.time = time
+        this.id = id
+        this.childIds = childIds
+        this.email = email
+        this.subject = subject
+    }
+}
 
-updateTime = datetime.datetime.now().astimezone(datetime.timezone.utc)
+function check_output(argv: string[]): string {
+    const result = spawnSync(argv[0], argv.slice(1), { encoding: "utf-8" });
+    if (result.status != 0) {
+        throw new Error(argv[0] + " failed with exit code" + result.status);
+    }
+    return result.stdout;
+}
 
-originLine = subprocess.check_output(["/usr/bin/git", "-C", "js.org", "log", "--format=%at%n%H%n%P%n%ae%n%s%n"],
-                                     text=True, encoding="utf-8", errors="replace")
-originLines = originLine.splitlines()
+const updateTime = new Date();
 
-items: list[GitItem] = []
-itemMap: dict[str, GitItem] = {}
-i = 0
-while i < len(originLines):
-    timestamp = int(originLines[i])
+const originExec = spawnSync("/usr/bin/git", ["-C", "js.org", "log", "--format=%at%n%H%n%P%n%ae%n%s%n"], { encoding: "utf-8" });
+console.error(originExec.error);
+if (originExec.status != 0) {
+    throw new Error("git log failed with exit code" + originExec.status);
+}
+const originLines = originExec.stdout.split("\n");
+
+const items: GitItem[] = [];
+const itemMap: Record<string, GitItem> = {};
+let i = 0, timestamp: number;
+while (i < originLines.length) {
+    timestamp = Number(originLines[i])
     i += 1
-    id = originLines[i]
+    let id = originLines[i];
     i += 1
-    childIdStr = originLines[i]
-    childIds = [] if childIdStr == "" else originLines[i].split(" ")
+    let childIdStr = originLines[i];
+    let childIds: string[] = childIdStr == "" ? [] : childIdStr.split(" ");
     i += 1
-    email = originLines[i]
+    let email = originLines[i];
     i += 1
-    subject = originLines[i]
+    let subject = originLines[i];
     i += 2
-    item = GitItem(timestamp, id, childIds, email, subject)
-    items.append(item)
+    let item = new GitItem(timestamp, id, childIds, email, subject);
+    items.push(item);
     itemMap[id] = item
+}
 
-# Emails allowed to appear in the main Git commit path
-allowedEmails = {
+// Emails allowed to appear in the main Git commit path
+const allowedEmails = [
     "bot@js.org",
     "stefan.keim@posteo.de",
     "indus@posteo.de",
     "indus@users.noreply.github.com",
     "me@mattcowley.co.uk",
     "matthew@cowley.org.uk",
+];
+
+// The following Git commits were directly merged into the js.org repo, and we must address this.
+const allowedCommits = {
+    "641c1343d02de8831a66a539c7917b79187f52d0": 8514,  // marionette.js.org (#8514) <paul@otterball.com>
+    "db6e0d2d71c20f02dea10e70b4b68ee770e3f1d5": null,  // add blackbird.js.org subdomain mapping <arindamdutta132@gmail.com>
+    "328b71bd15dbeb84707afd9019191d8889d3f18e": 12432,  // Update cnames_active.js with correct tag <arindamdutta132@gmail.com>
+    "2409e868b9a45ede8b11065c21d03e462c458943": 12441,  // Update cnames_active.js <gmrafiweb@gmrafi.com>
+};
+
+const disallowedCommits = [
+    // The following Git commits short-circuited the normal history.
+    "6adfd9149629ca99f9a8e9771f8f587e96f1d83a",  // Remove concurrency from validate workflow
+    "bebcb082418bfc5876889c2bd5de40a4c15065dc",  // Enable concurrency for validate workflow
+
+    // The following Git commits created duplicate records.
+    "a13e16d227b05b1344d9de9923fdeec98184eca9",  // cleanup and sort
+    "533ea491945c5a7d2393e6ba5998b8b14688287a",  // cleanup and sort
+];
+
+
+function isAllowed(item: GitItem) {
+    return (allowedEmails.indexOf(item.email) >= 0 || item.id in allowedCommits) && (disallowedCommits.indexOf(item.id) < 0);
 }
 
-# The following Git commits were directly merged into the js.org repo, and we must address this.
-allowedCommits = {
-    "641c1343d02de8831a66a539c7917b79187f52d0": 8514,  # marionette.js.org (#8514) <paul@otterball.com>
-    "db6e0d2d71c20f02dea10e70b4b68ee770e3f1d5": None,  # add blackbird.js.org subdomain mapping <arindamdutta132@gmail.com>
-    "328b71bd15dbeb84707afd9019191d8889d3f18e": 12432,  # Update cnames_active.js with correct tag <arindamdutta132@gmail.com>
-    "2409e868b9a45ede8b11065c21d03e462c458943": 12441,  # Update cnames_active.js <gmrafiweb@gmrafi.com>
-}
-
-disallowedCommits = {
-    # The following Git commits short-circuited the normal history.
-    "6adfd9149629ca99f9a8e9771f8f587e96f1d83a",  # Remove concurrency from validate workflow
-    "bebcb082418bfc5876889c2bd5de40a4c15065dc",  # Enable concurrency for validate workflow
-
-    # The following Git commits created duplicate records.
-    "a13e16d227b05b1344d9de9923fdeec98184eca9",  # cleanup and sort
-    "533ea491945c5a7d2393e6ba5998b8b14688287a",  # cleanup and sort
-}
-
-
-def isAllowed(item: GitItem):
-    return (item.email in allowedEmails or item.id in allowedCommits) and item.id not in disallowedCommits
-
-
-def bfs(headId: str, firstId: str):
-    bfs: deque[str] = deque()
-    vis: set[str] = set()
-    parent: dict[str, str] = {}
-    bfs.append(headId)
-    if not isAllowed(itemMap[headId]):
-        raise RuntimeError(f"Unexpected Head {headId}")
-    while len(bfs) > 0:
-        id = bfs.popleft()
-        if id not in vis:
-            item = itemMap[id]
-            if isAllowed(item):
+function bfs(headId: string, firstId: string): string[] {
+    const bfs = new Deque<string>();
+    const vis = new Set<string>();
+    const parent: Record<string, string> = {};
+    bfs.pushBack(headId);
+    if (!isAllowed(itemMap[headId]))
+        throw new Error(`Unexpected Head ${headId}`);
+    let id: string;
+    while (bfs.size() > 0) {
+        id = bfs.popFront();
+        if (!vis.has(id)) {
+            const item = itemMap[id];
+            if (isAllowed(item)) {
                 vis.add(id)
-                for childId in item.childIds:
-                    if childId not in vis:
+                for (const childId of item.childIds) {
+                    if (!vis.has(childId)) {
                         parent[childId] = id
-                        bfs.append(childId)
-                        if childId == firstId:
+                        bfs.pushBack(childId);
+                        if (childId == firstId) {
                             bfs.clear()
                             break
+                        }
+                    }
+                }
+            }
+        }
+    }
     id = firstId
-    if id not in parent:
-        raise RuntimeError(f"Unexpected Tail {headId}-{firstId}")
-    result: list[str] = []
-    while True:
-        result.append(id)
-        if id == headId:
+    if (!(id in parent))
+        throw new Error(`Unexpected Tail ${headId}-${firstId}`);
+    const result: string[] = [];
+    while (true) {
+        result.push(id);
+        if (id == headId)
             return result
-        if id not in parent:
+        if (!(id in parent))
             break
         id = parent[id]
-    raise RuntimeError(f"Unexpected id={id} when finding {headId}-{firstId}")
+    }
+    throw new Error(`Unexpected id=${id} when finding ${headId}-${firstId}`);
+}
+
+const mergeItems: GitItem[] = [];
+const commitRegex = /^Merge pull request #(\d+) from (.*)$/;
+for (const item of items) {
+    if (isAllowed(item)) {
+        const match = item.subject.match(commitRegex);
+        if (match)
+            mergeItems.push(item);
+    }
+}
+mergeItems.push(itemMap["86da41b2e348bac3e49056ab9e3296a57a322206"]);  // Initial commit
+
+const fullItems = [mergeItems[mergeItems.length - 1]];
+for (let i = len(mergeItems) - 2; i >= 0; i--) {
+    const bfsResult = bfs(mergeItems[i].id, mergeItems[i + 1].id);
+    for (let j = 1; j < bfsResult.length; j++)
+        fullItems.push(itemMap[bfsResult[j]]);
+}
+
+const cnameRegex = /^,?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*("[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?$/;
+const nsRegex = /^,?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*(\[.+\])\s*,?\s*(\/\/.+)?$/;
+const cnameDict: Record<string, any> = {};
 
 
-mergeItems: list[GitItem] = []
-commitRegex = re.compile(r"Merge pull request #(\d+) from (.*)")
-for item in items:
-    if isAllowed(item):
-        match = re.match(commitRegex, item.subject)
-        if match is not None:
-            mergeItems.append(item)
-mergeItems.append(itemMap["86da41b2e348bac3e49056ab9e3296a57a322206"])  # Initial commit
-
-fullItems: list[GitItem] = [mergeItems[-1]]
-for i in range(len(mergeItems) - 2, -1, -1):
-    bfsResult = bfs(mergeItems[i].id, mergeItems[i + 1].id)
-    for j in range(1, len(bfsResult)):
-        fullItems.append(itemMap[bfsResult[j]])
-
-cnameRegex = re.compile(r',?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*("[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?://\s*(.+))?')
-nsRegex = re.compile(r',?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*(\[.+\])\s*,?\s*(//.+)?')
-cnameDict: dict[str, dict] = {}
-
-
-def addCnameItem(name: str, itemType: str, server, comment, item: GitItem):
-    if name not in cnameDict:
+function addCnameItem(name: string, itemType: string, server: string | string[] | null, comment: string | null, item: GitItem) {
+    let dictItem, historyItems: HistoryItem[];
+    if (!(name in cnameDict)) {
         dictItem = {}
         dictItem["name"] = name
         dictItem["history"] = []
         cnameDict[name] = dictItem
-    else:
+    } else {
         dictItem = cnameDict[name]
+    }
     historyItems = dictItem["history"]
 
-    for historyItem in historyItems:
-        if historyItem["commit"] == item.id:
-            if type(historyItem["server"]) != list and type(server) == list:
-                # cname -> ns
+    for (const historyItem of historyItems) {
+        if (historyItem["commit"] == item.id) {
+            if (!Array.isArray(historyItem["server"]) && Array.isArray(server)) {
+                // cname -> ns
                 historyItem["server"] = server
                 historyItem["type"] = itemType
                 return
-            elif type(historyItem["server"]) == list and type(server) == str:
-                # ns -> cname (possible?)
+            } else if (Array.isArray(historyItem["server"]) && typeof (server) == "string") {
+                // ns -> cname (possible?)
                 historyItem["server"] = server
                 historyItem["type"] = itemType
                 return
-            elif type(server) == str:
-                # mina.js.org has duplicated records
-                if type(historyItem["server"]) != list:
+            } else if (typeof (server) == "string") {
+                // mina.js.org has duplicated records
+                if (!Array.isArray(historyItem["server"]))
                     historyItem["server"] = [historyItem["server"]]
-                historyItem["server"].append(server)
+                historyItem["server"].push(server)
                 historyItem["type"] = itemType
                 return
-            else:
-                raise RuntimeError("Unknown duplicated records in commit", item.id)
-
-    historyItem = {}
+            } else
+                throw new Error("Unknown duplicated records in commit " + item.id);
+        }
+    }
+    let historyItem: Partial<HistoryItem> = {};
     dictItem["history"].append(historyItem)
     historyItem["time"] = item.time
     historyItem["type"] = itemType
-    historyItem["server"] = server
+    historyItem["server"] = server!;
     historyItem["comment"] = comment
     historyItem["commit"] = item.id
-    pushMatch = re.match(commitRegex, item.subject)
-    if pushMatch is None:
-        if item.id in allowedCommits:
+    const pushMatch = item.subject.match(commitRegex);
+    if (pushMatch == null)
+        if (item.id in allowedCommits)
             historyItem["pull"] = allowedCommits[item.id]
-        else:
-            historyItem["pull"] = None
-    else:
-        historyItem["pull"] = int(pushMatch.group(1))
+        else
+            historyItem["pull"] = null;
+    else
+        historyItem["pull"] = Number(pushMatch[1])
+}
 
-
-def parseFullItems():
-    for i in range(1, len(fullItems)):
-        gitItem = fullItems[i]
-        originDiff = subprocess.check_output([
+function parseFullItems() {
+    for (let i = 1; i < fullItems.length; i++) {
+        const gitItem = fullItems[i];
+        const originDiff = check_output([
             "/usr/bin/git",
             "-C",
             "js.org",
@@ -192,57 +227,66 @@ def parseFullItems():
             "--",
             "cnames_active.js",
             "ns_active.js"
-        ], text=True, encoding="utf-8", errors="replace")
-        parsedDiff = PatchSet.from_string(originDiff)
-        for file in parsedDiff:
-            addItems = []
-            removeItems = []
-            addItemsRemoved = []  # avoid duplicated records
-            removeItemsRemoved = []
-            for patch in file:
-                for line in patch:
-                    if line.is_added or line.is_removed:
-                        lineStr = line.value.strip()
-                        if "mina\"" in lineStr:
-                            breakpoint = 0
-                        if file.target_file == "b/cnames_active.js":
-                            match = re.match(cnameRegex, lineStr)
-                            if match is None:
+        ]);
+        const parsedDiff = parsePatch(originDiff);
+        for (const file of parsedDiff) {
+            const addItems: Array<any[]> = [];
+            const removeItems: Array<any[]> = [];
+            const addItemsRemoved: Array<any[]> = [];  // avoid duplicated records
+            const removeItemsRemoved: Array<any[]> = [];
+            for (const patch of file.hunks) {
+                for (const line of patch.lines) {
+                    const isAdded = line.startsWith("+"), isRemoved = line.startsWith("-");
+                    if (isAdded || isRemoved) {
+                        const lineStr = line.substring(1).trim();
+                        if (file.newFileName == "b/cnames_active.js") {
+                            const match = lineStr.match(cnameRegex);
+                            if (match == null)
                                 continue
-                            name: str = json.loads(match.group(1))
-                            server: str = json.loads(match.group(2))
-                            comment = match.group(3)
-                            if line.is_added:
-                                addItems.append([name, server, comment, "cname"])
-                            else:
-                                removeItems.append([name, server, comment, "remove"])
-                        elif file.target_file == "b/ns_active.js":
-                            match = re.match(nsRegex, lineStr)
-                            if match is None:
+                            const name: string = JSON.parse(match[1]);
+                            const server: string = JSON.parse(match[2]);
+                            const comment = match[3] || null;
+                            if (isAdded)
+                                addItems.push([name, server, comment, "cname"]);
+                            else
+                                removeItems.push([name, server, comment, "remove"]);
+                        } else if (file.newFileName == "b/ns_active.js") {
+                            const match = lineStr.match(nsRegex);
+                            if (match == null)
                                 continue
-                            name: str = json.loads(match.group(1))
-                            servers: list[str] = json.loads(match.group(2))
-                            comment = match.group(3)
-                            if line.is_added:
-                                addItems.append([name, servers, comment, "ns"])
-                            else:
-                                removeItems.append([name, servers, comment, "remove"])
-            for item in removeItems:
-                for addItem in addItems:
-                    if addItem[0] == item[0]:
-                        if addItem[1] == item[1] and addItem[2] == item[2]:
-                            # indention and sorting
-                            addItemsRemoved.append(addItem)
-                        # else: modify cname/comment
-                        removeItemsRemoved.append(item)
+                            const name: string = JSON.parse(match[1]);
+                            const servers: string[] = JSON.parse(match[2]);
+                            const comment = match[3] || null;
+                            if (isAdded)
+                                addItems.push([name, servers, comment, "ns"]);
+                            else
+                                removeItems.push([name, servers, comment, "remove"]);
+                        }
+                    }
+                }
+            }
+            for (const item of removeItems) {
+                for (const addItem of addItems) {
+                    if (addItem[0] == item[0]) {
+                        if (addItem[1] == item[1] && addItem[2] == item[2]) {
+                            // indention and sorting
+                            addItemsRemoved.push(addItem)
+                        }
+                        // else: modify cname/comment
+                        removeItemsRemoved.push(item)
                         break
-            for item in addItems:
-                if item not in addItemsRemoved:
+                    }
+                }
+            }
+            for (const item of addItems)
+                if (addItemsRemoved.indexOf(item) < 0)
                     addCnameItem(item[0], item[3], item[1], item[2], gitItem)
-            for item in removeItems:
-                if item not in removeItemsRemoved:
-                    addCnameItem(item[0], item[3], None, None, gitItem)
-
+            for (const item of removeItems)
+                if (removeItemsRemoved.indexOf(item) < 0)
+                    addCnameItem(item[0], item[3], null, null, gitItem)
+        }
+    }
+}
 
 def sortDict(inDict: dict):
     sortedList = list(inDict.items())
