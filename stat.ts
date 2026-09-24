@@ -152,7 +152,7 @@ for (const item of items) {
 mergeItems.push(itemMap["86da41b2e348bac3e49056ab9e3296a57a322206"]);  // Initial commit
 
 const fullItems = [mergeItems[mergeItems.length - 1]];
-for (let i = len(mergeItems) - 2; i >= 0; i--) {
+for (let i = mergeItems.length - 2; i >= 0; i--) {
     const bfsResult = bfs(mergeItems[i].id, mergeItems[i + 1].id);
     for (let j = 1; j < bfsResult.length; j++)
         fullItems.push(itemMap[bfsResult[j]]);
@@ -519,16 +519,16 @@ for (const [firstStr, item] of Object.entries(filteredDict)) {
 
 writeFileSync("dist/times.json", JSON.stringify(timeDict), { encoding: "utf-8" });
 
-for [year, timedItem] in timedDict.items():
-    with open(f"dist/year{year}.json", "w", encoding="utf-8") as file:
-        file.write(json.dumps(timedItem, separators=(",", ":"), ensure_ascii=False))
+for (const [year, timedItem] of Object.entries(timedDict))
+    writeFileSync(`dist/year${year}.json`, JSON.stringify(timedItem), { encoding: "utf-8" });
 
-with open("dist/live.json", "w", encoding="utf-8") as file:
-    file.write(json.dumps(timeDomains, separators=(",", ":"), ensure_ascii=False))
+writeFileSync("dist/live.json", JSON.stringify(timeDomains), { encoding: "utf-8" });
 
-# stats
-with open("dist/README.md", "w", encoding="utf-8") as file:
-    file.write("# JS.ORG Stats\n")
-    file.write(f"- **Updated time:** {updateTime.isoformat()}\n")
-    file.write(f"- **Total subdomains:** {len(cnameDict)}\n")
-    file.write(f"- **Live subdomains:** {len(timeDomains) - 1}\n")  # remove `^updateTime`
+// stats
+{
+    let content = "# JS.ORG Stats\n";
+    content += `- **Updated time:** ${updateTime.toISOString()}\n`;
+    content += `- **Total subdomains:** ${Object.keys(cnameDict).length}\n`;
+    content += `- **Live subdomains:** ${Object.keys(timeDomains).length - 1}\n`;  // remove `^updateTime`
+    writeFileSync("dist/README.md", content, { encoding: "utf-8" });
+}
