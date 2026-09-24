@@ -47,7 +47,7 @@ function contains(arr: any[], item: any) {
 const updateTime = new Date();
 
 const originExec = spawnSync("/usr/bin/git", ["-C", "js.org", "log", "--format=%at%n%H%n%P%n%ae%n%s%n"], { encoding: "utf-8", maxBuffer: 104857600 });
-console.error(originExec.error);
+console.error(originExec.stderr);
 if (originExec.status != 0) {
     throw new Error("git log failed with exit code" + originExec.status);
 }
