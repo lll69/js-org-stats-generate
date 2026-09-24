@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
 import { Deque } from "@datastructures-js/deque";
 import { parsePatch } from "diff";
 
@@ -288,32 +289,36 @@ function parseFullItems() {
     }
 }
 
-def sortDict(inDict: dict):
-    sortedList = list(inDict.items())
-    sortedList.sort(key=lambda item: len(item[1]), reverse=True)
-    outDict: dict = {}
-    for item in sortedList:
+function sortDict<T1 extends keyof any, T2 extends { length: number }>(inDict: Record<T1, T2>): Record<T1, T2> {
+    const sortedList = Object.entries(inDict);
+    sortedList.sort((a, b) => (b[1] as T2).length - (a[1] as T2).length);
+    const outDict = {} as Record<T1, T2>;
+    for (const item of sortedList)
         outDict[item[0]] = item[1]
     return outDict
+}
 
-
-def generateCommitItems():
-    commitItems: dict[str, list[str]] = {}
-    for item in cnameDict.values():
-        for historyItem in item["history"]:
-            id = historyItem["commit"]
-            if id in commitItems:
+function generateCommitItems() {
+    const commitItems: Record<string, string[]> = {};
+    for (const item of Object.values(cnameDict)) {
+        for (const historyItem of item["history"]) {
+            const id = historyItem["commit"];
+            let commitItem: string[];
+            if (id in commitItems)
                 commitItem = commitItems[id]
-            else:
+            else {
                 commitItem = []
                 commitItems[id] = commitItem
-            commitItem.append(item["name"])
-    return sortDict(commitItems)
+            }
+            commitItem.push(item["name"]);
+        }
+    }
+    return sortDict(commitItems);
+}
 
-
-def generateCnameStat():
-    cnameStat: dict[str, list[str]] = {}
-    resolveDomains = [
+function generateCnameStat() {
+    const cnameStat: Record<string, string[]> = {};
+    const resolveDomains = [
         "github.io",
         "pages.dev",
         "gitlab.io",
@@ -323,136 +328,153 @@ def generateCnameStat():
         "surge.sh",
         "onrender.com",
         "azurestaticapps.net",
-    ]
-    for item in cnameDict.values():
-        historyItem = item["history"][-1]
-        server = historyItem["server"]
-        if type(server) != str:
+    ];
+    for (const item of Object.values(cnameDict)) {
+        const historyItem = item["history"][item["history"].length - 1];
+        const server = historyItem["server"];
+        if (typeof (server) != "string")
             continue
-        cname = server.split("/")[0]
-        if cname.endswith(".vercel.app") or cname.endswith(".vercel-dns.com") or cname.endswith(".zeit.co") or cname.endswith(".now.sh"):
+        const cname = server.split("/")[0];
+        let mappedCname: string;
+        if (cname.endsWith(".vercel.app") || cname.endsWith(".vercel-dns.com") || cname.endsWith(".zeit.co") || cname.endsWith(".now.sh"))
             mappedCname = "vercel"
-        elif cname.endswith(".netlify.app") or cname.endswith(".netlify.com"):
+        else if (cname.endsWith(".netlify.app") || cname.endsWith(".netlify.com"))
             mappedCname = "netlify"
-        else:
-            for domain in resolveDomains:
-                if cname.endswith("." + domain):
+        else {
+            mappedCname = cname
+            for (const domain of resolveDomains) {
+                if (cname.endsWith("." + domain)) {
                     mappedCname = domain
                     break
-            else:
-                mappedCname = cname
-        if mappedCname in cnameStat:
+                }
+            }
+        }
+        let statItem: string[];
+        if (mappedCname in cnameStat)
             statItem = cnameStat[mappedCname]
-        else:
+        else {
             statItem = []
             cnameStat[mappedCname] = statItem
-        statItem.append(item["name"])
+        }
+        statItem.push(item["name"]);
+    }
     return sortDict(cnameStat)
+}
 
-
-def generateFilteredDict():
-    filteredDict: dict[str, dict] = {}
-    for item in cnameDict.values():
-        name: str = item["name"]
-        if len(name) == 0:
+function generateFilteredDict() {
+    const filteredDict: Record<string, any> = {};
+    for (const item of cnameDict.values()) {
+        const name: string = item["name"];
+        if (name.length == 0)
             continue
-        firstStr = name[0].lower()
-        if not ("a" <= firstStr[0] <= "z"):
+        let firstStr = name[0].toLowerCase(), filteredItem;
+        if (!("a" <= firstStr[0] && firstStr[0] <= "z"))
             firstStr = "z"
-        if firstStr in filteredDict:
+        if (filteredDict.hasOwnProperty(firstStr)) {
             filteredItem = filteredDict[firstStr]
-        else:
+        } else {
             filteredItem = {}
             filteredDict[firstStr] = filteredItem
+        }
         filteredItem[item["name"]] = item
+    }
     return sortDict(filteredDict)
+}
 
-
-def isRemoveHistory(item):
+function isRemoveHistory(item) {
     return item["type"] == "remove"
+}
 
-
-def generatePrTimeArray():
-    timeArray = []
-    baseDir = "dist/pulls/"
-    for name in os.listdir(baseDir):
-        if not name.endswith(".json"):
+function generatePrTimeArray() {
+    const timeArray: number[] = [];
+    const baseDir = "dist/pulls/";
+    for (const name of readdirSync(baseDir)) {
+        if (!name.endsWith(".json"))
             continue
-        with open(baseDir + name, "r", encoding="utf-8") as file:
-            data = json.load(file)
-        for prData in data.values():
-            timeArray.append(int(datetime.datetime.fromisoformat(prData["create"]).timestamp()))
-    timeArray = list(sorted(timeArray))
+        const data = JSON.parse(readFileSync(baseDir + name, { encoding: "utf-8" }));
+        for (const prData of Object.values(data))
+            timeArray.push(Date.parse((prData as any)["create"]));
+    }
+    timeArray.sort();
     return timeArray
+}
 
-
-def generateTimeDicts():
-    timeArray: list[int] = []
-    timedDict: dict[int, dict] = {}
-    for item in cnameDict.values():
-        historyItems = item["history"]
-        for i in range(len(historyItems)):
-            historyItem = historyItems[i]
-            year = datetime.datetime.fromtimestamp(historyItem["time"], datetime.UTC).year
-            if year in timedDict:
+function generateTimeDicts() {
+    const timeArray: number[] = [];
+    const timedDict: Record<number, any> = {};
+    for (const item of Object.values(cnameDict)) {
+        const historyItems = item["history"];
+        for (let i = 0; i < historyItems.length; i++) {
+            const historyItem = historyItems[i];
+            const year = new Date(historyItem["time"] * 1000).getUTCFullYear();
+            let timedDictItem, timedItem, time: number;
+            if (timedDict.hasOwnProperty(year)) {
                 timedDictItem = timedDict[year]
-            else:
-                timedDictItem: dict = {"^updateTime": int(updateTime.timestamp())}
+            } else {
+                timedDictItem = { "^updateTime": Math.trunc(updateTime.getTime() / 1000) }
                 timedDict[year] = timedDictItem
-            if isRemoveHistory(historyItem) and (i == 0 or not isRemoveHistory(historyItems[i - 1])):
+            }
+            if (isRemoveHistory(historyItem) && (i == 0 || !isRemoveHistory(historyItems[i - 1]))) {
                 time = -historyItem["time"]
-                timeArray.append(time)
-                if time in timedDictItem:
+                timeArray.push(time);
+                if (timedDictItem.hasOwnProperty(time)) {
                     timedItem = timedDictItem[time]
-                    if type(timedItem) == list:
-                        timedItem.append(item["name"])
-                    else:
+                    if (Array.isArray(timedItem))
+                        timedItem.push(item["name"]);
+                    else
                         timedDictItem[time] = [timedItem, item["name"]]
-                else:
+                } else {
                     timedDictItem[time] = item["name"]
-            elif (not isRemoveHistory(historyItem)) and (i == 0 or isRemoveHistory(historyItems[i - 1])):
+                }
+            } else if ((!isRemoveHistory(historyItem)) && (i == 0 || isRemoveHistory(historyItems[i - 1]))) {
                 time = historyItem["time"]
-                timeArray.append(time)
-                if time in timedDictItem:
+                timeArray.push(time);
+                if (timedDictItem.hasOwnProperty(time)) {
                     timedItem = timedDictItem[time]
-                    if type(timedItem) == list:
-                        timedItem.append(item["name"])
-                    else:
+                    if (Array.isArray(timedItem))
+                        timedItem.push(item["name"]);
+                    else
                         timedDictItem[time] = [timedItem, item["name"]]
-                else:
+                } else {
                     timedDictItem[time] = item["name"]
-    timeArray.sort(key=abs)
-    resultArray = []
-    i = 0
-    length = len(timeArray)
-    while i < length:
-        count = 1
-        time = timeArray[i]
-        while i + 1 < length and timeArray[i + 1] == time:
+                }
+            }
+        }
+    }
+    timeArray.sort((a, b) => Math.abs(a) - Math.abs(b));
+    const resultArray: (number | number[])[] = [];
+    let i = 0;
+    const length = timeArray.length;
+    while (i < length) {
+        let count = 1;
+        const time = timeArray[i];
+        while (i + 1 < length && timeArray[i + 1] == time) {
             i += 1
             count += 1
-        if count == 1:
-            resultArray.append(time)
-        else:
-            resultArray.append([time, count])
+        }
+        if (count == 1)
+            resultArray.push(time);
+        else
+            resultArray.push([time, count]);
         i += 1
-    resultDict: dict = {"^updateTime": int(updateTime.timestamp())}
+    }
+    const resultDict = { "^updateTime": Math.trunc(updateTime.getTime() / 1000) };
     resultDict["data"] = resultArray
     resultDict["prData"] = generatePrTimeArray()
-    for timedDictItem in timedDict.values():
-        for timedItem in timedDictItem.values():
-            if type(timedItem) == list:
+    for (const timedDictItem of Object.values(timedDict))
+        for (const timedItem of Object.values(timedDictItem))
+            if (Array.isArray(timedItem))
                 timedItem.sort()
-    return (resultDict, timedDict)
+    return [resultDict, timedDict];
+}
 
-
-def generateTimeDomains():
-    timeDomains: dict[str, int] = {"^updateTime": int(updateTime.timestamp())}
-    for item in cnameDict.values():
-        if item["history"][-1]["type"] != "remove":
+function generateTimeDomains() {
+    const timeDomains: Record<string, number> = { "^updateTime": Math.trunc(updateTime.getTime() / 1000) };
+    for (const item of Object.values(cnameDict))
+        if (item["history"][item["history"].length - 1]["type"] != "remove")
             timeDomains[item["name"]] = item["history"][0]["time"]
     return timeDomains
-
+}
 
 parseFullItems()
 commitItems = generateCommitItems()
