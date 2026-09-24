@@ -37,6 +37,13 @@ function check_output(argv: string[]): string {
     return result.stdout;
 }
 
+function contains(arr: any[], item: any) {
+    for (let i = 0; i < arr.length; i++) {
+        if (_.isEqual(arr[i], item)) return true;
+    }
+    return false;
+}
+
 const updateTime = new Date();
 
 const originExec = spawnSync("/usr/bin/git", ["-C", "js.org", "log", "--format=%at%n%H%n%P%n%ae%n%s%n"], { encoding: "utf-8", maxBuffer: 104857600 });
@@ -220,9 +227,6 @@ function addCnameItem(name: string, itemType: string, server: string | string[] 
 function parseFullItems() {
     for (let i = 1; i < fullItems.length; i++) {
         const gitItem = fullItems[i];
-        if (gitItem.id == "93dbe87b37be9a99f0a2d941535d68fe7d92c84c") {
-            debugger;
-        }
         const originDiff = check_output([
             "/usr/bin/git",
             "-C",
@@ -251,9 +255,6 @@ function parseFullItems() {
                                 continue
                             const name: string = JSON.parse(match[1]);
                             const server: string = JSON.parse(match[2]);
-                            if (server.includes("echosoar.github.io/medit")) {
-                                debugger;
-                            }
                             const comment = match[3] || null;
                             if (isAdded)
                                 addItems.push([name, server, comment, "cname"]);
@@ -288,10 +289,10 @@ function parseFullItems() {
                 }
             }
             for (const item of addItems)
-                if (addItemsRemoved.indexOf(item) < 0)
+                if (!contains(addItemsRemoved, item))
                     addCnameItem(item[0], item[3], item[1], item[2], gitItem)
             for (const item of removeItems)
-                if (removeItemsRemoved.indexOf(item) < 0)
+                if (!contains(removeItemsRemoved, item))
                     addCnameItem(item[0], item[3], null, null, gitItem)
         }
     }
