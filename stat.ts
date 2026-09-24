@@ -505,19 +505,19 @@ if (!existsSync("dist"))
     writeFileSync("dist/stat.json", JSON.stringify(cnameStatWithTime, null, 1), { encoding: "utf-8" });
 }
 
-with open("dist/statSimple.json", "w", encoding="utf-8") as file:
-    cnameStatSimple = {"^updateTime": Math.trunc(updateTime.getTime() / 1000)}
-    for item in cnameStat.keys():
-        cnameStatSimple[item] = len(cnameStat[item])
-    file.write(json.dumps(cnameStatSimple, separators=(",", ":"), ensure_ascii=False))
+{
+    const cnameStatSimple = { "^updateTime": Math.trunc(updateTime.getTime() / 1000) }
+    for (const item of Object.keys(cnameStat))
+        cnameStatSimple[item] = cnameStat[item].length;
+    writeFileSync("dist/statSimple.json", JSON.stringify(cnameStatSimple), { encoding: "utf-8" });
+}
 
-for [firstStr, item] in filteredDict.items():
-    with open(f"dist/{firstStr}.json", "w", encoding="utf-8") as file:
-        item["^updateTime"] = int(updateTime.timestamp())
-        file.write(json.dumps(item, separators=(",", ":"), ensure_ascii=False))
+for (const [firstStr, item] of Object.entries(filteredDict)) {
+    item["^updateTime"] = Math.trunc(updateTime.getTime() / 1000);
+    writeFileSync(`dist/${firstStr}.json`, JSON.stringify(item), { encoding: "utf-8" });
+}
 
-with open("dist/times.json", "w", encoding="utf-8") as file:
-    file.write(json.dumps(timeDict, separators=(",", ":"), ensure_ascii=False))
+writeFileSync("dist/times.json", JSON.stringify(timeDict), { encoding: "utf-8" });
 
 for [year, timedItem] in timedDict.items():
     with open(f"dist/year{year}.json", "w", encoding="utf-8") as file:
