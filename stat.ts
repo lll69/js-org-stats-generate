@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { Deque } from "@datastructures-js/deque";
 import { parsePatch } from "diff";
 
@@ -477,35 +477,36 @@ function generateTimeDomains() {
 }
 
 parseFullItems()
-commitItems = generateCommitItems()
-cnameStat = generateCnameStat()
-filteredDict = generateFilteredDict()
-timeDict, timedDict = generateTimeDicts()
-timeDomains = generateTimeDomains()
+const commitItems = generateCommitItems();
+const cnameStat = generateCnameStat();
+const filteredDict = generateFilteredDict();
+const [timeDict, timedDict] = generateTimeDicts();
+const timeDomains = generateTimeDomains();
 
-# shutil.rmtree("dist", ignore_errors=True)
-os.makedirs("dist", exist_ok=True)
+// shutil.rmtree("dist", ignore_errors=True)
+if (!existsSync("dist"))
+    mkdirSync("dist", { recursive: true });
 
-with open("dist/cname.json", "w", encoding="utf-8") as file:
-    cnameDictWithTime: dict = {"^updateTime": int(updateTime.timestamp())}
-    cnameDictWithTime.update(cnameDict)
-    file.write(json.dumps(cnameDictWithTime, separators=(",", ":"), indent=1))
-    del cnameDictWithTime
+{
+    const cnameDictWithTime = { "^updateTime": Math.trunc(updateTime.getTime() / 1000) };
+    Object.assign(cnameDictWithTime, cnameDict);
+    writeFileSync("dist/cname.json", JSON.stringify(cnameDictWithTime, null, 1), { encoding: "utf-8" });
+}
 
-with open("dist/commit.json", "w", encoding="utf-8") as file:
-    commitItemsWithTime: dict = {"^updateTime": int(updateTime.timestamp())}
-    commitItemsWithTime.update(commitItems)
-    file.write(json.dumps(commitItemsWithTime, separators=(",", ":"), indent=1))
-    del commitItemsWithTime
+{
+    const commitItemsWithTime = { "^updateTime": Math.trunc(updateTime.getTime() / 1000) };
+    Object.assign(commitItemsWithTime, commitItems);
+    writeFileSync("dist/commit.json", JSON.stringify(commitItemsWithTime, null, 1), { encoding: "utf-8" });
+}
 
-with open("dist/stat.json", "w", encoding="utf-8") as file:
-    cnameStatWithTime = {"^updateTime": int(updateTime.timestamp())}
-    cnameStatWithTime.update(cnameStat)
-    file.write(json.dumps(cnameStatWithTime, separators=(",", ":"), indent=1))
-    del cnameStatWithTime
+{
+    const cnameStatWithTime = { "^updateTime": Math.trunc(updateTime.getTime() / 1000) };
+    Object.assign(cnameStatWithTime, cnameStat);
+    writeFileSync("dist/stat.json", JSON.stringify(cnameStatWithTime, null, 1), { encoding: "utf-8" });
+}
 
 with open("dist/statSimple.json", "w", encoding="utf-8") as file:
-    cnameStatSimple = {"^updateTime": int(updateTime.timestamp())}
+    cnameStatSimple = {"^updateTime": Math.trunc(updateTime.getTime() / 1000)}
     for item in cnameStat.keys():
         cnameStatSimple[item] = len(cnameStat[item])
     file.write(json.dumps(cnameStatSimple, separators=(",", ":"), ensure_ascii=False))
