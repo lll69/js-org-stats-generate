@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { Deque } from "@datastructures-js/deque";
 import { parsePatch } from "diff";
+import _ from "lodash";
 
 type HistoryItem = {
     "time": number,
@@ -142,7 +143,7 @@ function bfs(headId: string, firstId: string): string[] {
 }
 
 const mergeItems: GitItem[] = [];
-const commitRegex = /^Merge pull request #(\d+) from (.*)$/;
+const commitRegex = /^Merge pull request #(\d+) from (.*)/;
 for (const item of items) {
     if (isAllowed(item)) {
         const match = item.subject.match(commitRegex);
@@ -159,8 +160,8 @@ for (let i = mergeItems.length - 2; i >= 0; i--) {
         fullItems.push(itemMap[bfsResult[j]]);
 }
 
-const cnameRegex = /^,?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*("[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?$/;
-const nsRegex = /^,?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*(\[.+\])\s*,?\s*(\/\/.+)?$/;
+const cnameRegex = /^,?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*("[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?/;
+const nsRegex = /^,?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*(\[.+\])\s*,?\s*(\/\/.+)?/;
 const cnameDict: Record<string, any> = {};
 
 
@@ -219,6 +220,9 @@ function addCnameItem(name: string, itemType: string, server: string | string[] 
 function parseFullItems() {
     for (let i = 1; i < fullItems.length; i++) {
         const gitItem = fullItems[i];
+        if (gitItem.id == "502a15835eaeba817d5e5eff4f96ebb8294881f9" || gitItem.id == "1ebe4313ce2c7136d5db766ab501b885977d9bf0") {
+            debugger;
+        }
         const originDiff = check_output([
             "/usr/bin/git",
             "-C",
@@ -269,8 +273,8 @@ function parseFullItems() {
             }
             for (const item of removeItems) {
                 for (const addItem of addItems) {
-                    if (addItem[0] == item[0]) {
-                        if (addItem[1] == item[1] && addItem[2] == item[2]) {
+                    if (_.isEqual(addItem[0], item[0])) {
+                        if (_.isEqual(addItem[1], item[1]) && _.isEqual(addItem[2], item[2])) {
                             // indention and sorting
                             addItemsRemoved.push(addItem)
                         }
