@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmdirSync, writeFileSync } from "node:fs";
 import { argv, exit, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline";
 
@@ -26,6 +26,9 @@ async function input(question: string): Promise<string> {
     }
     const OUT_DIR = "dist/pulls";
     const MAX_TRIES = 16;
+
+    if (existsSync(OUT_DIR))
+        rmdirSync(OUT_DIR, { recursive: true });
 
     if (!existsSync(OUT_DIR))
         mkdirSync(OUT_DIR, { recursive: true });
