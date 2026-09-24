@@ -95,7 +95,7 @@ const disallowedCommits = [
 
 
 function isAllowed(item: GitItem) {
-    return (allowedEmails.indexOf(item.email) >= 0 || item.id in allowedCommits) && (disallowedCommits.indexOf(item.id) < 0);
+    return (allowedEmails.indexOf(item.email) >= 0 || allowedCommits.hasOwnProperty(item.id)) && (disallowedCommits.indexOf(item.id) < 0);
 }
 
 function bfs(headId: string, firstId: string): string[] {
@@ -126,14 +126,14 @@ function bfs(headId: string, firstId: string): string[] {
         }
     }
     id = firstId
-    if (!(id in parent))
+    if (!(parent.hasOwnProperty(id)))
         throw new Error(`Unexpected Tail ${headId}-${firstId}`);
     const result: string[] = [];
     while (true) {
         result.push(id);
         if (id == headId)
             return result
-        if (!(id in parent))
+        if (!parent.hasOwnProperty(id))
             break
         id = parent[id]
     }
@@ -165,7 +165,7 @@ const cnameDict: Record<string, any> = {};
 
 function addCnameItem(name: string, itemType: string, server: string | string[] | null, comment: string | null, item: GitItem) {
     let dictItem, historyItems: HistoryItem[];
-    if (!(name in cnameDict)) {
+    if (!cnameDict.hasOwnProperty(name)) {
         dictItem = {}
         dictItem["name"] = name
         dictItem["history"] = []
@@ -207,7 +207,7 @@ function addCnameItem(name: string, itemType: string, server: string | string[] 
     historyItem["commit"] = item.id
     const pushMatch = item.subject.match(commitRegex);
     if (pushMatch == null)
-        if (item.id in allowedCommits)
+        if (allowedCommits.hasOwnProperty(item.id))
             historyItem["pull"] = allowedCommits[item.id]
         else
             historyItem["pull"] = null;
@@ -304,7 +304,7 @@ function generateCommitItems() {
         for (const historyItem of item["history"]) {
             const id = historyItem["commit"];
             let commitItem: string[];
-            if (id in commitItems)
+            if (commitItems.hasOwnProperty(id))
                 commitItem = commitItems[id]
             else {
                 commitItem = []
@@ -350,7 +350,7 @@ function generateCnameStat() {
             }
         }
         let statItem: string[];
-        if (mappedCname in cnameStat)
+        if (cnameStat.hasOwnProperty(mappedCname))
             statItem = cnameStat[mappedCname]
         else {
             statItem = []
