@@ -220,7 +220,7 @@ function addCnameItem(name: string, itemType: string, server: string | string[] 
 function parseFullItems() {
     for (let i = 1; i < fullItems.length; i++) {
         const gitItem = fullItems[i];
-        if (gitItem.id == "502a15835eaeba817d5e5eff4f96ebb8294881f9" || gitItem.id == "1ebe4313ce2c7136d5db766ab501b885977d9bf0") {
+        if (gitItem.id == "93dbe87b37be9a99f0a2d941535d68fe7d92c84c") {
             debugger;
         }
         const originDiff = check_output([
@@ -251,6 +251,9 @@ function parseFullItems() {
                                 continue
                             const name: string = JSON.parse(match[1]);
                             const server: string = JSON.parse(match[2]);
+                            if (server.includes("echosoar.github.io/medit")) {
+                                debugger;
+                            }
                             const comment = match[3] || null;
                             if (isAdded)
                                 addItems.push([name, server, comment, "cname"]);
