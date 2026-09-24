@@ -29,7 +29,7 @@ class GitItem {
 }
 
 function check_output(argv: string[]): string {
-    const result = spawnSync(argv[0], argv.slice(1), { encoding: "utf-8" });
+    const result = spawnSync(argv[0], argv.slice(1), { encoding: "utf-8", maxBuffer: 104857600 });
     if (result.status != 0) {
         throw new Error(argv[0] + " failed with exit code" + result.status);
     }
@@ -38,12 +38,13 @@ function check_output(argv: string[]): string {
 
 const updateTime = new Date();
 
-const originExec = spawnSync("/usr/bin/git", ["-C", "js.org", "log", "--format=%at%n%H%n%P%n%ae%n%s%n"], { encoding: "utf-8" });
+const originExec = spawnSync("/usr/bin/git", ["-C", "js.org", "log", "--format=%at%n%H%n%P%n%ae%n%s%n"], { encoding: "utf-8", maxBuffer: 104857600 });
 console.error(originExec.error);
 if (originExec.status != 0) {
     throw new Error("git log failed with exit code" + originExec.status);
 }
-const originLines = originExec.stdout.split("\n");
+let originLines = originExec.stdout.split("\n");
+originLines = originLines.slice(0, Math.floor(originLines.length / 6) * 6);
 
 const items: GitItem[] = [];
 const itemMap: Record<string, GitItem> = {};
@@ -199,7 +200,7 @@ function addCnameItem(name: string, itemType: string, server: string | string[] 
         }
     }
     let historyItem: Partial<HistoryItem> = {};
-    dictItem["history"].append(historyItem)
+    dictItem["history"].push(historyItem);
     historyItem["time"] = item.time
     historyItem["type"] = itemType
     historyItem["server"] = server!;
@@ -363,7 +364,7 @@ function generateCnameStat() {
 
 function generateFilteredDict() {
     const filteredDict: Record<string, any> = {};
-    for (const item of cnameDict.values()) {
+    for (const item of Object.values(cnameDict)) {
         const name: string = item["name"];
         if (name.length == 0)
             continue
