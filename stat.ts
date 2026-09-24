@@ -402,7 +402,7 @@ function generatePrTimeArray() {
             continue
         const data = JSON.parse(readFileSync(baseDir + name, { encoding: "utf-8" }));
         for (const prData of Object.values(data))
-            timeArray.push(Date.parse((prData as any)["create"]));
+            timeArray.push(Math.trunc(Date.parse((prData as any)["create"]) / 1000));
     }
     timeArray.sort();
     return timeArray
