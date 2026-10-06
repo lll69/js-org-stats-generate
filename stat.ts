@@ -394,21 +394,28 @@ function isRemoveHistory(item) {
     return item["type"] == "remove"
 }
 
-function generatePrTimeArray() {
+function generatePrTimeArrays() {
     const timeArray: number[] = [];
+    const mergeTimeArray: number[] = [];
     const baseDir = "dist/pulls/";
     for (const name of readdirSync(baseDir)) {
         if (!name.endsWith(".json"))
             continue
         const data = JSON.parse(readFileSync(baseDir + name, { encoding: "utf-8" }));
-        for (const prData of Object.values(data))
+        for (const prData of Object.values(data)) {
             timeArray.push(Math.trunc(Date.parse((prData as any)["create"]) / 1000));
+            const mergeTime: string | null = (prData as any)["merge"];
+            if (mergeTime != null) {
+                mergeTimeArray.push(Math.trunc(Date.parse(mergeTime) / 1000));
+            }
+        }
     }
     timeArray.sort();
-    return timeArray
+    mergeTimeArray.sort();
+    return [timeArray, mergeTimeArray];
 }
 
-function generateTimeDicts() {
+function generateTimeDictsAndArray() {
     const timeArray: number[] = [];
     const timedDict: Record<number, any> = {};
     for (const item of Object.values(cnameDict)) {
@@ -468,13 +475,14 @@ function generateTimeDicts() {
         i += 1
     }
     const resultDict = { "^updateTime": Math.trunc(updateTime.getTime() / 1000) };
-    resultDict["data"] = resultArray
-    resultDict["prData"] = generatePrTimeArray()
+    resultDict["data"] = resultArray;
+    const prTimeArrays = generatePrTimeArrays();
+    resultDict["prData"] = prTimeArrays[0];
     for (const timedDictItem of Object.values(timedDict))
         for (const timedItem of Object.values(timedDictItem))
             if (Array.isArray(timedItem))
                 timedItem.sort()
-    return [resultDict, timedDict];
+    return [resultDict, timedDict, prTimeArrays[1]];
 }
 
 function generateTimeDomains() {
@@ -489,7 +497,7 @@ parseFullItems()
 const commitItems = generateCommitItems();
 const cnameStat = generateCnameStat();
 const filteredDict = generateFilteredDict();
-const [timeDict, timedDict] = generateTimeDicts();
+const [timeDict, timedDict, prMergeTimeArray] = generateTimeDictsAndArray();
 const timeDomains = generateTimeDomains();
 
 // shutil.rmtree("dist", ignore_errors=True)
@@ -527,6 +535,7 @@ for (const [firstStr, item] of Object.entries(filteredDict)) {
 }
 
 writeFileSync("dist/times.json", JSON.stringify(timeDict), { encoding: "utf-8" });
+writeFileSync("dist/prMergeTimes.json", JSON.stringify({ "^updateTime": Math.trunc(updateTime.getTime() / 1000), data: prMergeTimeArray }), { encoding: "utf-8" });
 
 for (const [year, timedItem] of Object.entries(timedDict))
     writeFileSync(`dist/year${year}.json`, JSON.stringify(timedItem), { encoding: "utf-8" });

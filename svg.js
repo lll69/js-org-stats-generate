@@ -7,6 +7,7 @@ const SECOND_PER_DAY = 60 * 60 * 24;
 const MS_PER_DAY = 1000 * SECOND_PER_DAY;
 
 const INPUT_FILE = path.join("dist", "times.json");
+const INPUT_FILE_PR_MERGE = path.join("dist", "prMergeTimes.json");
 const OUTPUT_FILE = path.join("dist", "domains_and_prs.svg");
 
 const WIDTH = 1600;
@@ -16,7 +17,7 @@ const MARGIN = { top: 40, right: 40, bottom: 110, left: 90 };
 const PLOT_WIDTH = WIDTH - MARGIN.left - MARGIN.right;
 const PLOT_HEIGHT = HEIGHT - MARGIN.top - MARGIN.bottom;
 
-const COLORS = ["#FF9800", "#2196F3"];
+const COLORS = ["#FF9800", "#009688", "#2196F3"];
 
 function escapeXml(value) {
   return String(value)
@@ -61,17 +62,20 @@ function buildSpecialDays(minMs, maxMs) {
   return list;
 }
 
-function utcDayToLineData(timeData, prData) {
+function utcDayToLineData(timeData, prData, prMergeData) {
   if (!timeData.length) throw new Error("times.json contains no domain data");
   if (!prData.length) throw new Error("times.json contains no PR data");
+  if (!prMergeData.length) throw new Error("times.json contains no PR merge data");
 
   const firstTime = getUtcDayMs(Math.abs(convertTime(timeData[0])));
   const firstPr = getUtcDayMs(Math.abs(convertTime(prData[0])));
+  const firstPrMerge = getUtcDayMs(Math.abs(convertTime(prMergeData[0])));
   const lastTime = getUtcDayMs(Math.abs(convertTime(timeData[timeData.length - 1])));
   const lastPr = getUtcDayMs(Math.abs(convertTime(prData[prData.length - 1])));
+  const lastPrMerge = getUtcDayMs(Math.abs(convertTime(prMergeData[prMergeData.length - 1])));
 
-  const minDayMs = Math.min(firstTime, firstPr) - MS_PER_DAY;
-  const maxDayMs = Math.max(lastTime, lastPr);
+  const minDayMs = Math.min(firstTime, firstPr, firstPrMerge) - MS_PER_DAY;
+  const maxDayMs = Math.max(lastTime, lastPr, lastPrMerge);
   const totalDayCount = Math.floor((maxDayMs - minDayMs) / MS_PER_DAY) + 1;
 
   const x = new Array(totalDayCount);
@@ -101,7 +105,15 @@ function utcDayToLineData(timeData, prData) {
   }
   for (let i = 1; i < totalDayCount; i++) y2[i] += y2[i - 1];
 
-  return { x, domains: y, prs: y2, specialDays };
+  // ---- PRs ----
+  const y3 = new Array(totalDayCount).fill(0);
+  for (const item of prMergeData) {
+    const idx = dayIndex(getUtcDayMs(Math.abs(convertTime(item))));
+    if (idx >= 0 && idx < totalDayCount) y3[idx] += 1;
+  }
+  for (let i = 1; i < totalDayCount; i++) y3[i] += y3[i - 1];
+
+  return { x, domains: y, prs: y2, prsMerge: y3, specialDays };
 }
 
 function formatNumber(v) {
@@ -222,11 +234,13 @@ function generateSvgMultiple({ x, valuesArray, specialDays, title, labels }) {
 
 function main() {
   if (!fs.existsSync(INPUT_FILE)) throw new Error(`Input file not found: ${INPUT_FILE}`);
+  if (!fs.existsSync(INPUT_FILE_PR_MERGE)) throw new Error(`Input file not found: ${INPUT_FILE_PR_MERGE}`);
 
   const raw = JSON.parse(fs.readFileSync(INPUT_FILE, "utf8"));
-  const { x, domains, prs, specialDays } = utcDayToLineData(raw.data || [], raw.prData || []);
+  const rawPrMerge = JSON.parse(fs.readFileSync(INPUT_FILE_PR_MERGE, "utf8"));
+  const { x, domains, prs, prsMerge, specialDays } = utcDayToLineData(raw.data || [], raw.prData || [], rawPrMerge.data || []);
 
-  fs.writeFileSync(OUTPUT_FILE, generateSvgMultiple({ x, valuesArray: [prs, domains], specialDays, title: "Total Subdomains & PRs", labels: ["Total PRs", "Total Subdomains"] }), "utf8");
+  fs.writeFileSync(OUTPUT_FILE, generateSvgMultiple({ x, valuesArray: [prs, prsMerge, domains], specialDays, title: "Total Subdomains & PRs", labels: ["Total PRs Created", "Total PRs Merged", "Total Subdomains"] }), "utf8");
 
   console.log(`Generated ${OUTPUT_FILE}`);
 }
