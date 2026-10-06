@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// from [@mraxays](https://github.com/mraxays) https://gist.github.com/mraxays/39d9f3b9a2e432280048b859fb9ceec5
+// from [@mraxays](https://github.com/mraxays) <https://gist.github.com/mraxays/39d9f3b9a2e432280048b859fb9ceec5>
 const fs = require("fs");
 const path = require("path");
 
@@ -7,8 +7,7 @@ const SECOND_PER_DAY = 60 * 60 * 24;
 const MS_PER_DAY = 1000 * SECOND_PER_DAY;
 
 const INPUT_FILE = path.join("dist", "times.json");
-const DOMAINS_FILE = path.join("dist", "domains.svg");
-const PRS_FILE = path.join("dist", "prs.svg");
+const OUTPUT_FILE = path.join("dist", "domains_and_prs.svg");
 
 const WIDTH = 1600;
 const HEIGHT = 900;
@@ -16,6 +15,8 @@ const FONT_SIZE = 20;
 const MARGIN = { top: 40, right: 40, bottom: 110, left: 90 };
 const PLOT_WIDTH = WIDTH - MARGIN.left - MARGIN.right;
 const PLOT_HEIGHT = HEIGHT - MARGIN.top - MARGIN.bottom;
+
+const COLORS = ["#FF9800", "#2196F3"];
 
 function escapeXml(value) {
   return String(value)
@@ -115,12 +116,13 @@ function niceStep(range, target = 8) {
   return nf * Math.pow(10, exp);
 }
 
-function createScales(x, values, specialDays) {
+function createScalesMultiple(x, valuesArray, specialDays) {
   // X axis spans the first to last tick (like matplotlib showing the edge ticks)
   const xMin = specialDays[0];
   const xMax = specialDays[specialDays.length - 1];
 
   // Y axis with 5% padding, like matplotlib
+  const values = [].concat(...valuesArray);
   const dMin = Math.min(...values);
   const dMax = Math.max(...values, 1);
   const pad = (dMax - dMin) * 0.05 || 1;
@@ -147,8 +149,8 @@ function createLinePath(x, values, scaleX, scaleY) {
   return d;
 }
 
-function generateSvg({ x, values, specialDays, label }) {
-  const { scaleX, scaleY, yTicks } = createScales(x, values, specialDays);
+function generateSvgMultiple({ x, valuesArray, specialDays, title, labels }) {
+  const { scaleX, scaleY, yTicks } = createScalesMultiple(x, valuesArray, specialDays);
 
   const plotLeft = MARGIN.left;
   const plotRight = WIDTH - MARGIN.right;
@@ -160,7 +162,7 @@ function generateSvg({ x, values, specialDays, label }) {
   parts.push(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">`
   );
-  parts.push(`<title>${escapeXml(label)}</title>`);
+  parts.push(`<title>${escapeXml(title)}</title>`);
   parts.push(`<rect width="${WIDTH}" height="${HEIGHT}" fill="white"/>`);
 
   // Horizontal grid + y labels
@@ -195,17 +197,24 @@ function generateSvg({ x, values, specialDays, label }) {
   );
 
   // Data line
-  parts.push(
-    `<path d="${createLinePath(x, values, scaleX, scaleY)}" fill="none" stroke="#1f77b4" stroke-width="2"/>`
-  );
+  let colorIndex = 0;
+  for (const values of valuesArray) {
+    parts.push(
+      `<path d="${createLinePath(x, values, scaleX, scaleY)}" fill="none" stroke="${COLORS[colorIndex++]}" stroke-width="2"/>`
+    );
+  }
 
   // Legend (upper left)
-  const lx = plotLeft + 20;
-  const ly = plotTop + 28;
-  parts.push(`<line x1="${lx}" y1="${ly}" x2="${lx + 35}" y2="${ly}" stroke="#1f77b4" stroke-width="2"/>`);
-  parts.push(
-    `<text x="${lx + 45}" y="${ly}" dy="0.35em" font-family="sans-serif" font-size="${FONT_SIZE}">${escapeXml(label)}</text>`
-  );
+  colorIndex = 0;
+  let lx = plotLeft + 20;
+  let ly = plotTop + 28;
+  for (const label of labels) {
+    parts.push(`<line x1="${lx}" y1="${ly}" x2="${lx + 35}" y2="${ly}" stroke="${COLORS[colorIndex++]}" stroke-width="2"/>`);
+    parts.push(
+      `<text x="${lx + 45}" y="${ly}" dy="0.35em" font-family="sans-serif" font-size="${FONT_SIZE}">${escapeXml(label)}</text>`
+    );
+    ly += 25;
+  }
 
   parts.push("</svg>");
   return parts.join("\n");
@@ -217,11 +226,9 @@ function main() {
   const raw = JSON.parse(fs.readFileSync(INPUT_FILE, "utf8"));
   const { x, domains, prs, specialDays } = utcDayToLineData(raw.data || [], raw.prData || []);
 
-  fs.writeFileSync(DOMAINS_FILE, generateSvg({ x, values: domains, specialDays, label: "Total Subdomains" }), "utf8");
-  fs.writeFileSync(PRS_FILE, generateSvg({ x, values: prs, specialDays, label: "Total PRs" }), "utf8");
+  fs.writeFileSync(OUTPUT_FILE, generateSvgMultiple({ x, valuesArray: [prs, domains], specialDays, title: "Total Subdomains & PRs", labels: ["Total PRs", "Total Subdomains"] }), "utf8");
 
-  console.log(`Generated ${DOMAINS_FILE}`);
-  console.log(`Generated ${PRS_FILE}`);
+  console.log(`Generated ${OUTPUT_FILE}`);
 }
 
 try {
