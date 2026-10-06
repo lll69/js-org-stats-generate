@@ -183,9 +183,9 @@ function generateSvg({ x, values, specialDays, label }) {
     );
     const ty = plotBottom + 12;
     parts.push(
-      `<text x="${xp}" y="${ty}" text-anchor="start" dominant-baseline="central" ` +
+      `<text x="${xp}" y="${ty}" text-anchor="end" dominant-baseline="central" ` +
       `font-family="sans-serif" font-size="${FONT_SIZE}" ` +
-      `transform="rotate(90 ${xp} ${ty})">${escapeXml(msToUtcYearMonth(day))}</text>`
+      `transform="rotate(-90 ${xp} ${ty})">${escapeXml(msToUtcYearMonth(day))}</text>`
     );
   }
 
