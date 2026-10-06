@@ -104,7 +104,7 @@ function utcDayToLineData(timeData, prData) {
 }
 
 function formatNumber(v) {
-  return Number(v).toLocaleString("en-US", { useGrouping: false });
+  return String(v);
 }
 
 function niceStep(range, target = 8) {
