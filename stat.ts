@@ -167,7 +167,7 @@ for (let i = mergeItems.length - 2; i >= 0; i--) {
         fullItems.push(itemMap[bfsResult[j]]);
 }
 
-const cnameRegex = /^,?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*("[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?/;
+const cnameRegex = /^,?\s*("[a-z0-9_\-\.\\]*")\s*\:\s*("[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?/;
 const nsRegex = /^,?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*(\[.+\])\s*,?\s*(\/\/.+)?/;
 const cnameDict: Record<string, any> = {};
 
