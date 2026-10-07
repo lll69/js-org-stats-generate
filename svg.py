@@ -96,7 +96,7 @@ xSpecialLabel = list(map(msToUtcYearMonth, xSpecial))
 plt.rcParams.update({"font.size": 20})
 
 ax = plt.subplots(figsize=(16, 9))[1]
-ax.plot(x, y, label="Total Subdomains")
+ax.plot(x, y, label="Live Subdomains")
 ax.set_xticks(xSpecial)
 ax.set_xticklabels(xSpecialLabel)
 ax.tick_params("x", labelrotation=90)

@@ -240,7 +240,7 @@ function main() {
   const rawPrMerge = JSON.parse(fs.readFileSync(INPUT_FILE_PR_MERGE, "utf8"));
   const { x, domains, prs, prsMerge, specialDays } = utcDayToLineData(raw.data || [], raw.prData || [], rawPrMerge.data || []);
 
-  fs.writeFileSync(OUTPUT_FILE, generateSvgMultiple({ x, valuesArray: [prs, prsMerge, domains], specialDays, title: "Total Subdomains & PRs", labels: ["Total PRs Created", "Total PRs Merged", "Total Subdomains"] }), "utf8");
+  fs.writeFileSync(OUTPUT_FILE, generateSvgMultiple({ x, valuesArray: [prs, prsMerge, domains], specialDays, title: "Total Subdomains & PRs", labels: ["Total PRs Created", "Total PRs Merged", "Live Subdomains"] }), "utf8");
 
   console.log(`Generated ${OUTPUT_FILE}`);
 }
