@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { Deque } from "@datastructures-js/deque";
 import { parsePatch } from "diff";
 import _ from "lodash";
+import * as acorn from "acorn";
 
 type HistoryItem = {
     "time": number,
@@ -32,7 +33,15 @@ class GitItem {
 function check_output(argv: string[]): string {
     const result = spawnSync(argv[0], argv.slice(1), { encoding: "utf-8", maxBuffer: 104857600 });
     if (result.status != 0) {
-        throw new Error(argv[0] + " failed with exit code" + result.status);
+        throw new Error(argv[0] + " failed with exit code " + result.status);
+    }
+    return result.stdout;
+}
+
+function spawnOrEmpty(argv: string[]): string {
+    const result = spawnSync(argv[0], argv.slice(1), { encoding: "utf-8", maxBuffer: 104857600 });
+    if (result.status != 0) {
+        return "";
     }
     return result.stdout;
 }
@@ -42,6 +51,12 @@ function contains(arr: any[], item: any) {
         if (_.isEqual(arr[i], item)) return true;
     }
     return false;
+}
+
+function allIndexOf(arr: any[], item: any, outArr: number[]) {
+    for (let i = 0; i < arr.length; i++) {
+        if (_.isEqual(arr[i], item)) outArr.push(i);
+    }
 }
 
 const updateTime = new Date();
@@ -171,6 +186,10 @@ const cnameRegex = /^,?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*("[A-Za-z0-9_/\-\.\\]+")\s
 const nsRegex = /^,?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*(\[.+\])\s*,?\s*(\/\/.+)?/;
 const cnameDict: Record<string, any> = {};
 
+type CnameActiveArrayItem = ([string, string] | [string, string, string | null]);
+type CnameActiveArray = CnameActiveArrayItem[];
+type NsActiveArrayItem = ([string, string[]] | [string, string[], string | null]);
+type NsActiveArray = NsActiveArrayItem[];
 
 function addCnameItem(name: string, itemType: string, server: string | string[] | null, comment: string | null, item: GitItem) {
     let dictItem, historyItems: HistoryItem[];
@@ -224,77 +243,259 @@ function addCnameItem(name: string, itemType: string, server: string | string[] 
         historyItem["pull"] = Number(pushMatch[1])
 }
 
+function parseFullItemFallback(gitItem: GitItem, lastItem: GitItem) {
+    const originDiff = check_output([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "diff",
+        lastItem.id,
+        gitItem.id,
+        "--",
+        "cnames_active.js",
+        "ns_active.js"
+    ]);
+    const parsedDiff = parsePatch(originDiff);
+    for (const file of parsedDiff) {
+        const addItems: Array<any[]> = [];
+        const removeItems: Array<any[]> = [];
+        const addItemsRemoved: Array<any[]> = [];  // avoid duplicated records
+        const removeItemsRemoved: Array<any[]> = [];
+        for (const patch of file.hunks) {
+            for (const line of patch.lines) {
+                if (line.includes("salvattore") || line.includes("medit")) {
+                    // debugger;
+                }
+                const isAdded = line.startsWith("+"), isRemoved = line.startsWith("-");
+                if (isAdded || isRemoved) {
+                    const lineStr = line.substring(1).trim();
+                    if (file.newFileName == "b/cnames_active.js") {
+                        const match = lineStr.match(cnameRegex);
+                        if (match == null)
+                            continue
+                        const name: string = JSON.parse(match[1]);
+                        const server: string = JSON.parse(match[2]);
+                        const comment = match[3] || null;
+                        if (isAdded)
+                            addItems.push([name, server, comment, "cname"]);
+                        else
+                            removeItems.push([name, server, comment, "remove"]);
+                    } else if (file.newFileName == "b/ns_active.js") {
+                        const match = lineStr.match(nsRegex);
+                        if (match == null)
+                            continue
+                        const name: string = JSON.parse(match[1]);
+                        const servers: string[] = JSON.parse(match[2]);
+                        const comment = match[3] || null;
+                        if (isAdded)
+                            addItems.push([name, servers, comment, "ns"]);
+                        else
+                            removeItems.push([name, servers, comment, "remove"]);
+                    }
+                }
+            }
+        }
+        for (const item of removeItems) {
+            for (const addItem of addItems) {
+                if (_.isEqual(addItem[0], item[0])) {
+                    if (_.isEqual(addItem[1], item[1]) && _.isEqual(addItem[2], item[2])) {
+                        // indention and sorting
+                        addItemsRemoved.push(addItem)
+                    }
+                    // else: modify cname/comment
+                    removeItemsRemoved.push(item)
+                    break
+                }
+            }
+        }
+        for (const item of addItems)
+            if (!contains(addItemsRemoved, item))
+                addCnameItem(item[0], item[3], item[1], item[2], gitItem)
+        for (const item of removeItems)
+            if (!contains(removeItemsRemoved, item))
+                addCnameItem(item[0], item[3], null, null, gitItem)
+    }
+}
+
+function parseFullItemNew(oldCnameActive: CnameActiveArray, newCnameActive: CnameActiveArray, oldNsActive: NsActiveArray, newNsActive: NsActiveArray) {
+    const indexArrOld: number[] = [];
+    const indexArrNew: number[] = [];
+    let cnameItem: CnameActiveArrayItem;
+    while (oldCnameActive.length || newCnameActive.length) {
+        indexArrOld.length = indexArrNew.length = 0;
+        cnameItem = oldCnameActive.length ? oldCnameActive[0] : newCnameActive[0];
+        allIndexOf(oldCnameActive, cnameItem, indexArrOld);
+        allIndexOf(newCnameActive, cnameItem, indexArrNew);
+    }
+}
+
+function parseCnameWithRegex(input: string): [string, string, string | null][] {
+    const result: [string, string, string | null][] = [];
+    for (const line of input.split("\n")) {
+        const match = line.match(cnameRegex);
+        if (match == null)
+            continue;
+        const name: string = JSON.parse(match[1]);
+        const server: string = JSON.parse(match[2]);
+        const comment = match[3] || null;
+        result.push([name, server, comment]);
+    }
+    return result;
+}
+
+function parseNsWithRegex(input: string): [string, string[], string | null][] {
+    const result: [string, string[], string | null][] = [];
+    for (const line of input.split("\n")) {
+        const match = line.match(nsRegex);
+        if (match == null)
+            continue;
+        const name: string = JSON.parse(match[1]);
+        const servers: string[] = JSON.parse(match[2]);
+        const comment = match[3] || null;
+        result.push([name, servers, comment]);
+    }
+    return result;
+}
+
+function parseObjectsWithRegex(gitItem: GitItem, lastItem: GitItem) {
+    const oldCnameActiveJs = check_output([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "show",
+        lastItem.id + ":cnames_active.js",
+    ]);
+    const newCnameActiveJs = check_output([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "show",
+        gitItem.id + ":cnames_active.js",
+    ]);
+    const oldNsActiveJs = spawnOrEmpty([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "show",
+        lastItem.id + ":ns_active.js",
+    ]);
+    const newNsActiveJs = spawnOrEmpty([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "show",
+        gitItem.id + ":ns_active.js",
+    ]);
+    return [
+        parseCnameWithRegex(oldCnameActiveJs),
+        parseCnameWithRegex(newCnameActiveJs),
+        parseNsWithRegex(oldNsActiveJs),
+        parseNsWithRegex(newNsActiveJs),
+    ] as const;
+}
+
+function parseAcornObject<T>(content: acorn.Program, objName: string, defaultValue?: [string, T][]): [string, T][] {
+    for (const bodyItem of content.body) {
+        if (bodyItem.type == "VariableDeclaration") {
+            for (const declareItem of bodyItem.declarations) {
+                if (declareItem.id.type == "Identifier" && declareItem.id.name == objName) {
+                    // found the variable
+                    const contentInit = declareItem.init;
+                    if (contentInit && contentInit.type == "ObjectExpression") {
+                        // the variable has init
+                        const content: [string, T][] = [];
+                        for (const property of contentInit.properties) {
+                            if (property.type == "Property" && property.key.type == "Literal") {
+                                if (property.value.type == "Literal") {
+                                    content.push([property.key.value as string, property.value.value as T]);
+                                } else if (property.value.type == "ArrayExpression") {
+                                    const valueArray: string[] = [];
+                                    for (const element of property.value.elements) {
+                                        if (!element || element.type != "Literal") {
+                                            throw new Error("Unknown array element type " + (element ? element.type : typeof element));
+                                        }
+                                        valueArray.push(element.value as string);
+                                    }
+                                    content.push([property.key.value as string, valueArray as T]);
+                                }
+                            }
+                        }
+                        return content;
+                    }
+                }
+            }
+        }
+    }
+    if (defaultValue === undefined) {
+        throw new Error(`Object ${objName} not found`);
+    }
+    return defaultValue;
+}
+
+function parseObjectsWithAcorn(gitItem: GitItem, lastItem: GitItem) {
+    const options = { ecmaVersion: 2020 } as const;
+    const oldCnameActiveProgram = acorn.parse(check_output([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "show",
+        lastItem.id + ":cnames_active.js",
+    ]), options);
+    const newCnameActiveProgram = acorn.parse(check_output([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "show",
+        gitItem.id + ":cnames_active.js",
+    ]), options);
+    const oldNsActiveJs = spawnOrEmpty([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "show",
+        lastItem.id + ":ns_active.js",
+    ]);
+    const newNsActiveJs = spawnOrEmpty([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "show",
+        gitItem.id + ":ns_active.js",
+    ]);
+    const oldCnameActive = parseAcornObject<string>(oldCnameActiveProgram, "cnames_active");
+    const newCnameActive = parseAcornObject<string>(newCnameActiveProgram, "cnames_active");
+    let oldNsActive: [string, string[]][] = [];
+    let newNsActive: [string, string[]][] = [];
+    if (oldNsActiveJs != "" || newNsActiveJs != "") {
+        const oldNsActiveProgram = acorn.parse(oldNsActiveJs, options);
+        const newNsActiveProgram = acorn.parse(newNsActiveJs, options);
+        oldNsActive = parseAcornObject<string[]>(oldNsActiveProgram, "ns_active", oldNsActive);
+        newNsActive = parseAcornObject<string[]>(newNsActiveProgram, "ns_active", newNsActive);
+    }
+    return [oldCnameActive, newCnameActive, oldNsActive, newNsActive] as const;
+}
+
 function parseFullItems() {
+    let oldCnameActive: CnameActiveArray;
+    let newCnameActive: CnameActiveArray;
+    let oldNsActive: NsActiveArray;
+    let newNsActive: NsActiveArray;
     for (let i = 1; i < fullItems.length; i++) {
         const gitItem = fullItems[i];
-        const originDiff = check_output([
-            "/usr/bin/git",
-            "-C",
-            "js.org",
-            "diff",
-            fullItems[i - 1].id,
-            gitItem.id,
-            "--",
-            "cnames_active.js",
-            "ns_active.js"
-        ]);
-        const parsedDiff = parsePatch(originDiff);
-        for (const file of parsedDiff) {
-            const addItems: Array<any[]> = [];
-            const removeItems: Array<any[]> = [];
-            const addItemsRemoved: Array<any[]> = [];  // avoid duplicated records
-            const removeItemsRemoved: Array<any[]> = [];
-            for (const patch of file.hunks) {
-                for (const line of patch.lines) {
-                    const isAdded = line.startsWith("+"), isRemoved = line.startsWith("-");
-                    if (isAdded || isRemoved) {
-                        const lineStr = line.substring(1).trim();
-                        if (file.newFileName == "b/cnames_active.js") {
-                            const match = lineStr.match(cnameRegex);
-                            if (match == null)
-                                continue
-                            const name: string = JSON.parse(match[1]);
-                            const server: string = JSON.parse(match[2]);
-                            const comment = match[3] || null;
-                            if (isAdded)
-                                addItems.push([name, server, comment, "cname"]);
-                            else
-                                removeItems.push([name, server, comment, "remove"]);
-                        } else if (file.newFileName == "b/ns_active.js") {
-                            const match = lineStr.match(nsRegex);
-                            if (match == null)
-                                continue
-                            const name: string = JSON.parse(match[1]);
-                            const servers: string[] = JSON.parse(match[2]);
-                            const comment = match[3] || null;
-                            if (isAdded)
-                                addItems.push([name, servers, comment, "ns"]);
-                            else
-                                removeItems.push([name, servers, comment, "remove"]);
-                        }
-                    }
-                }
+        const lastItem = fullItems[i - 1];
+        try {
+            [oldCnameActive, newCnameActive, oldNsActive, newNsActive] = parseObjectsWithAcorn(gitItem, lastItem);
+        } catch (e) {
+            console.error("Error with acorn while parsing", lastItem.id, "...", gitItem.id, ":", e);
+            try {
+                [oldCnameActive, newCnameActive, oldNsActive, newNsActive] = parseObjectsWithRegex(gitItem, lastItem);
+            } catch (e) {
+                console.error("Error with regex while parsing", lastItem.id, "...", gitItem.id, ":", e);
+                parseFullItemFallback(gitItem, lastItem);
+                continue;
             }
-            for (const item of removeItems) {
-                for (const addItem of addItems) {
-                    if (_.isEqual(addItem[0], item[0])) {
-                        if (_.isEqual(addItem[1], item[1]) && _.isEqual(addItem[2], item[2])) {
-                            // indention and sorting
-                            addItemsRemoved.push(addItem)
-                        }
-                        // else: modify cname/comment
-                        removeItemsRemoved.push(item)
-                        break
-                    }
-                }
-            }
-            for (const item of addItems)
-                if (!contains(addItemsRemoved, item))
-                    addCnameItem(item[0], item[3], item[1], item[2], gitItem)
-            for (const item of removeItems)
-                if (!contains(removeItemsRemoved, item))
-                    addCnameItem(item[0], item[3], null, null, gitItem)
         }
+        parseFullItemNew(oldCnameActive, newCnameActive, oldNsActive, newNsActive);
     }
 }
 
