@@ -7,7 +7,7 @@ import _ from "lodash";
 type HistoryItem = {
     "time": number,
     "type": string,
-    "server": string | string[],
+    "server": string | string[] | null,
     "comment": string | null,
     "commit": string | null,
     "pull": number | null,
@@ -171,6 +171,83 @@ const cnameRegex = /^,?\s*("[a-z0-9_\-\.\\]*")\s*\:\s*("[A-Za-z0-9_/\-\.\\]+")\s
 const nsRegex = /^,?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*(\[.+\])\s*,?\s*(\/\/.+)?/;
 const cnameDict: Record<string, any> = {};
 
+type CnameActiveArrayItem = [name: string, value: string, comment: string | null];
+type CnameActiveArray = CnameActiveArrayItem[];
+type NsActiveArrayItem = [name: string, value: string[], comment: string | null];
+type NsActiveArray = NsActiveArrayItem[];
+
+function spawnOrEmpty(argv: string[]): string {
+    const result = spawnSync(argv[0], argv.slice(1), { encoding: "utf-8", maxBuffer: 104857600 });
+    if (result.status != 0) {
+        return "";
+    }
+    return result.stdout;
+}
+
+function parseCnameWithRegex(input: string): CnameActiveArray {
+    const result: CnameActiveArray = [];
+    for (const line of input.split("\n")) {
+        const match = line.trim().match(cnameRegex);
+        if (match == null)
+            continue;
+        const name: string = JSON.parse(match[1]);
+        const server: string = JSON.parse(match[2]);
+        const comment = match[3] || null;
+        result.push([name, server, comment]);
+    }
+    return result;
+}
+
+function parseNsWithRegex(input: string): NsActiveArray {
+    const result: NsActiveArray = [];
+    for (const line of input.split("\n")) {
+        const match = line.trim().match(nsRegex);
+        if (match == null)
+            continue;
+        const name: string = JSON.parse(match[1]);
+        const servers: string[] = JSON.parse(match[2]);
+        const comment = match[3] || null;
+        result.push([name, servers, comment]);
+    }
+    return result;
+}
+
+function parseObjectsWithRegex(gitItem: GitItem, lastItem: GitItem) {
+    const oldCnameActiveJs = spawnOrEmpty([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "show",
+        lastItem.id + ":cnames_active.js",
+    ]);
+    const newCnameActiveJs = check_output([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "show",
+        gitItem.id + ":cnames_active.js",
+    ]);
+    const oldNsActiveJs = spawnOrEmpty([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "show",
+        lastItem.id + ":ns_active.js",
+    ]);
+    const newNsActiveJs = spawnOrEmpty([
+        "/usr/bin/git",
+        "-C",
+        "js.org",
+        "show",
+        gitItem.id + ":ns_active.js",
+    ]);
+    return [
+        parseCnameWithRegex(oldCnameActiveJs),
+        parseCnameWithRegex(newCnameActiveJs),
+        parseNsWithRegex(oldNsActiveJs),
+        parseNsWithRegex(newNsActiveJs),
+    ] as const;
+}
 
 function addCnameItem(name: string, itemType: string, server: string | string[] | null, comment: string | null, item: GitItem) {
     let dictItem, historyItems: HistoryItem[];
@@ -197,6 +274,11 @@ function addCnameItem(name: string, itemType: string, server: string | string[] 
                 historyItem["type"] = itemType
                 return
             } else if (typeof (server) == "string") {
+                if (historyItem["server"] == null) {
+                    historyItem["server"] = server
+                    historyItem["type"] = itemType
+                    return
+                }
                 // mina.js.org has duplicated records
                 if (!Array.isArray(historyItem["server"]))
                     historyItem["server"] = [historyItem["server"]]
@@ -224,8 +306,145 @@ function addCnameItem(name: string, itemType: string, server: string | string[] 
         historyItem["pull"] = Number(pushMatch[1])
 }
 
+function putCnameNsMap<T>(
+    map: Map<string, ([value: T, comment: string | null])[]>,
+    array: ([name: string, value: T, comment: string | null])[]
+) {
+    for (const [name, value, comment] of array) {
+        let mapItem: ([value: T, comment: string | null])[];
+        if (map.has(name)) {
+            mapItem = map.get(name)!;
+        } else {
+            mapItem = [];
+            map.set(name, mapItem);
+        }
+        mapItem.push([value, comment]);
+    }
+}
+
+function countStringify(map: Map<string, number>, dataArr: any[]) {
+    for (const data of dataArr) {
+        const dataStr = JSON.stringify(data);
+        let count = map.get(dataStr);
+        if (count == undefined) count = 0;
+        count++;
+        map.set(dataStr, count);
+    }
+}
+
+function diffCnameNsData<T>(
+    oldCountMap: Map<string, number>, newCountMap: Map<string, number>,
+    name: string, type: "cname" | "ns", item: GitItem
+) {
+    let isSame = oldCountMap.size == newCountMap.size;
+    if (isSame) {
+        for (const [oldArrayStr, oldCount] of oldCountMap) {
+            if (newCountMap.get(oldArrayStr) != oldCount) {
+                isSame = false;
+                break;
+            }
+        }
+    }
+    if (isSame) return;
+    let newData: T | T[];
+    let newComment: string | null;
+    let newDataCount = 0;
+    if (newCountMap.size <= 0) {
+        throw new Error("newCountMap should not be empty in " + item.id);
+    }
+    for (const count of newCountMap.values()) {
+        newDataCount += count;
+    }
+    if (newDataCount <= 1) {
+        const newValue: [value: T, comment: string | null] = JSON.parse(newCountMap.keys().next().value);
+        newData = newValue[0];
+        newComment = newValue[1];
+    } else {
+        newData = [] as T[];
+        newComment = null;
+        for (const [arrayStr, count] of newCountMap.entries()) {
+            const newValue: [value: T, comment: string | null] = JSON.parse(arrayStr);
+            for (let i = 0; i < count; i++) {
+                newData.push(newValue[0]);
+                if (newValue[1] != null) {
+                    newComment = (newComment == null) ? (newValue[1]) : (newComment + "\n" + newValue[1]);
+                }
+            }
+        }
+    }
+    if (Array.isArray(newData) && Array.isArray(newData[0])) {
+        throw new Error("Unexpected 2d array in " + item.id);
+    }
+    addCnameItem(name, type, newData as (string | string[]), newComment, item);
+}
+
+function compareCnameNsData<T>(
+    oldData: [value: T, comment: string | null][],
+    newData: [value: T, comment: string | null][],
+    name: string,
+    type: "cname" | "ns",
+    item: GitItem
+) {
+    // process duplicate records
+    const oldCount = new Map<string, number>();
+    const newCount = new Map<string, number>();
+    if (oldData.length) countStringify(oldCount, oldData);
+    countStringify(newCount, newData);
+    diffCnameNsData<T>(oldCount, newCount, name, type, item);
+}
+
 function parseFullItems() {
+    let oldCnames: CnameActiveArray, newCnames: CnameActiveArray, oldNSs: NsActiveArray, newNSs: NsActiveArray;
     for (let i = 1; i < fullItems.length; i++) {
+        const gitItem = fullItems[i];
+        try {
+            [oldCnames, newCnames, oldNSs, newNSs] = parseObjectsWithRegex(gitItem, fullItems[i - 1]);
+        } catch (e) {
+            console.error(`Error parsing commit ${gitItem.id}...${fullItems[i - 1].id}:`, e, "fallback to legacy method");
+            parseFullItemsFallback(i);
+            continue;
+        }
+        { // parse cnames
+            const oldCnameMap = new Map<string, ([value: string, comment: string | null])[]>();
+            const newCnameMap = new Map<string, ([value: string, comment: string | null])[]>();
+            putCnameNsMap(oldCnameMap, oldCnames);
+            putCnameNsMap(newCnameMap, newCnames);
+            for (const [oldCname, oldData] of oldCnameMap.entries()) {
+                const newData = newCnameMap.get(oldCname);
+                if (newData != undefined) {
+                    compareCnameNsData(oldData, newData, oldCname, "cname", gitItem);
+                    newCnameMap.delete(oldCname);
+                } else {
+                    addCnameItem(oldCname, "remove", null, null, gitItem);
+                }
+            }
+            for (const [newCname, newData] of newCnameMap.entries()) {
+                compareCnameNsData([], newData, newCname, "cname", gitItem);
+            }
+        }
+        { // parse NSs
+            const oldNsMap = new Map<string, ([value: string[], comment: string | null])[]>();
+            const newNsMap = new Map<string, ([value: string[], comment: string | null])[]>();
+            putCnameNsMap(oldNsMap, oldNSs);
+            putCnameNsMap(newNsMap, newNSs);
+            for (const [oldNsName, oldData] of oldNsMap.entries()) {
+                const newData = newNsMap.get(oldNsName);
+                if (newData != undefined) {
+                    compareCnameNsData(oldData, newData, oldNsName, "ns", gitItem);
+                    newNsMap.delete(oldNsName);
+                } else {
+                    addCnameItem(oldNsName, "remove", null, null, gitItem);
+                }
+            }
+            for (const [newNsName, newData] of newNsMap.entries()) {
+                compareCnameNsData([], newData, newNsName, "ns", gitItem);
+            }
+        }
+    }
+}
+
+function parseFullItemsFallback(i: number) {
+    {
         const gitItem = fullItems[i];
         const originDiff = check_output([
             "/usr/bin/git",
