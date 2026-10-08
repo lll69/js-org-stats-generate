@@ -2,8 +2,6 @@ import { spawn, spawnSync } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { Deque } from "@datastructures-js/deque";
-import { parsePatch } from "diff";
-import _ from "lodash";
 import { stderr } from "node:process";
 
 type HistoryItem = {
@@ -29,21 +27,6 @@ class GitItem {
         this.email = email
         this.subject = subject
     }
-}
-
-function check_output(argv: string[]): string {
-    const result = spawnSync(argv[0], argv.slice(1), { encoding: "utf-8", maxBuffer: 104857600 });
-    if (result.status != 0) {
-        throw new Error(argv[0] + " failed with exit code" + result.status);
-    }
-    return result.stdout;
-}
-
-function contains(arr: any[], item: any) {
-    for (let i = 0; i < arr.length; i++) {
-        if (_.isEqual(arr[i], item)) return true;
-    }
-    return false;
 }
 
 const updateTime = new Date();
