@@ -1,8 +1,10 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { Deque } from "@datastructures-js/deque";
 import { parsePatch } from "diff";
 import _ from "lodash";
+import { stderr } from "node:process";
 
 type HistoryItem = {
     "time": number,
@@ -178,13 +180,85 @@ type CnameActiveArray = CnameActiveArrayItem[];
 type NsActiveArrayItem = [name: string, value: string[], comment: string | null];
 type NsActiveArray = NsActiveArrayItem[];
 
-function spawnOrEmpty(argv: string[]): string {
-    const result = spawnSync(argv[0], argv.slice(1), { encoding: "utf-8", maxBuffer: 104857600 });
-    if (result.status != 0) {
-        return "";
+const OBJECT_READ_TIMEOUT = 10000;
+class ObjectReader {
+    proc: ChildProcessWithoutNullStreams;
+    buffer: Buffer;
+    private pending: ((result: string) => void)[];
+
+    constructor() {
+        this.buffer = Buffer.alloc(0);
+        this.pending = [];
+        this.proc = spawn("/usr/bin/git", ["-C", "js.org", "cat-file", "--batch=%(objectsize)"]);
+        this.proc.stdout.on("data", this.onData.bind(this));
+        this.proc.stderr.on("data", stderr.write.bind(stderr));
     }
-    return result.stdout;
+
+    private onData(data: Buffer) {
+        this.buffer = Buffer.concat([this.buffer, data]);
+        if (this.pending.length) this.tryParseBuffer();
+    }
+
+    private tryParseBuffer() {
+        const pending = this.pending;
+        while (true) {
+            const buffer = this.buffer;
+            const statusEnd = buffer.indexOf(0x0a); // \n
+            if (statusEnd < 0) {
+                // status line is not ready
+                break;
+            }
+            const header = buffer.toString("utf-8", 0, statusEnd).trim();
+            if (header.length == 0 || header.endsWith("missing") || isNaN(header as any)) {
+                // error fetching object
+                if (pending.length <= 0) break;
+                pending.shift()!("");
+                this.buffer = buffer.subarray(statusEnd + 1);
+                continue;
+            }
+            const objectSize = parseInt(header);
+            const responseLength = statusEnd + 1 + objectSize + 1;
+            if (buffer.length < responseLength) {
+                // object not ready
+                break;
+            }
+            if (pending.length <= 0) break;
+            const listener = pending.shift()!;
+            const objectContent = buffer.toString("utf-8", statusEnd + 1, statusEnd + 1 + objectSize);
+            this.buffer = buffer.subarray(responseLength);
+            listener(objectContent);
+        }
+    }
+
+    readObject(refName: string) {
+        const realThis = this;
+        const promise = new Promise<string>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject("Timed out");
+                realThis.pending.shift();
+            }, OBJECT_READ_TIMEOUT);
+            realThis.pending.push((result: string) => {
+                clearTimeout(timeout);
+                resolve(result);
+            });
+        });
+        this.proc.stdin.write(Buffer.from(refName + "\n", "utf8"));
+        this.tryParseBuffer();
+        return promise;
+    }
+
+    async close() {
+        const proc = this.proc;
+        if (proc.stdin.writable) this.proc.stdin.end();
+        await new Promise((resolve) => {
+            if (proc.exitCode != null || proc.signalCode != null) {
+                resolve(null);
+            }
+            proc.once("close", () => resolve(null));
+        });
+    }
 }
+const objectReader = new ObjectReader();
 
 function parseCnameWithRegex(input: string): CnameActiveArray {
     const result: CnameActiveArray = [];
@@ -214,35 +288,11 @@ function parseNsWithRegex(input: string): NsActiveArray {
     return result;
 }
 
-function parseObjectsWithRegex(gitItem: GitItem, lastItem: GitItem, lastCnames: CnameActiveArray | undefined, lastNSs: NsActiveArray | undefined) {
-    const oldCnameActiveJs = lastCnames == null ? spawnOrEmpty([
-        "/usr/bin/git",
-        "-C",
-        "js.org",
-        "show",
-        lastItem.id + ":cnames_active.js",
-    ]) : null;
-    const newCnameActiveJs = spawnOrEmpty([
-        "/usr/bin/git",
-        "-C",
-        "js.org",
-        "show",
-        gitItem.id + ":cnames_active.js",
-    ]);
-    const oldNsActiveJs = lastNSs == null ? spawnOrEmpty([
-        "/usr/bin/git",
-        "-C",
-        "js.org",
-        "show",
-        lastItem.id + ":ns_active.js",
-    ]) : null;
-    const newNsActiveJs = spawnOrEmpty([
-        "/usr/bin/git",
-        "-C",
-        "js.org",
-        "show",
-        gitItem.id + ":ns_active.js",
-    ]);
+async function parseObjectsWithRegex(gitItem: GitItem, lastItem: GitItem, lastCnames: CnameActiveArray | undefined, lastNSs: NsActiveArray | undefined) {
+    const oldCnameActiveJs = lastCnames == null ? await objectReader.readObject(lastItem.id + ":cnames_active.js") : null;
+    const newCnameActiveJs = await objectReader.readObject(gitItem.id + ":cnames_active.js");
+    const oldNsActiveJs = lastNSs == null ? await objectReader.readObject(lastItem.id + ":ns_active.js") : null;
+    const newNsActiveJs = await objectReader.readObject(gitItem.id + ":ns_active.js");
     return [
         lastCnames == null ? parseCnameWithRegex(oldCnameActiveJs!) : lastCnames,
         parseCnameWithRegex(newCnameActiveJs),
@@ -395,11 +445,11 @@ function compareCnameNsData<T>(
     diffCnameNsData<T>(oldCount, newCount, name, type, item);
 }
 
-function parseFullItems() {
+async function parseFullItems() {
     let oldCnames: CnameActiveArray, newCnames: CnameActiveArray | undefined, oldNSs: NsActiveArray, newNSs: NsActiveArray | undefined;
     for (let i = 1; i < fullItems.length; i++) {
         const gitItem = fullItems[i];
-        [oldCnames, newCnames, oldNSs, newNSs] = parseObjectsWithRegex(gitItem, fullItems[i - 1], newCnames, newNSs);
+        [oldCnames, newCnames, oldNSs, newNSs] = await parseObjectsWithRegex(gitItem, fullItems[i - 1], newCnames, newNSs);
         { // parse cnames
             const oldCnameMap = new Map<string, ([value: string, comment: string | null])[]>();
             const newCnameMap = new Map<string, ([value: string, comment: string | null])[]>();
@@ -634,60 +684,57 @@ function generateTimeDomains() {
     return timeDomains
 }
 
-parseFullItems()
-const commitItems = generateCommitItems();
-const cnameStat = generateCnameStat();
-const filteredDict = generateFilteredDict();
-const [timeDict, timedDict, prMergeTimeArray] = generateTimeDictsAndArray();
-const timeDomains = generateTimeDomains();
+async function main() {
+    await parseFullItems();
+    const commitItems = generateCommitItems();
+    const cnameStat = generateCnameStat();
+    const filteredDict = generateFilteredDict();
+    const [timeDict, timedDict, prMergeTimeArray] = generateTimeDictsAndArray();
+    const timeDomains = generateTimeDomains();
 
-// shutil.rmtree("dist", ignore_errors=True)
-if (!existsSync("dist"))
-    mkdirSync("dist", { recursive: true });
+    // shutil.rmtree("dist", ignore_errors=True)
+    if (!existsSync("dist"))
+        mkdirSync("dist", { recursive: true });
 
-{
     const cnameDictWithTime = { "^updateTime": Math.trunc(updateTime.getTime() / 1000) };
     Object.assign(cnameDictWithTime, cnameDict);
     writeFileSync("dist/cname.json", JSON.stringify(cnameDictWithTime, null, 1), { encoding: "utf-8" });
-}
 
-{
     const commitItemsWithTime = { "^updateTime": Math.trunc(updateTime.getTime() / 1000) };
     Object.assign(commitItemsWithTime, commitItems);
     writeFileSync("dist/commit.json", JSON.stringify(commitItemsWithTime, null, 1), { encoding: "utf-8" });
-}
 
-{
     const cnameStatWithTime = { "^updateTime": Math.trunc(updateTime.getTime() / 1000) };
     Object.assign(cnameStatWithTime, cnameStat);
     writeFileSync("dist/stat.json", JSON.stringify(cnameStatWithTime, null, 1), { encoding: "utf-8" });
-}
 
-{
     const cnameStatSimple = { "^updateTime": Math.trunc(updateTime.getTime() / 1000) }
     for (const item of Object.keys(cnameStat))
         cnameStatSimple[item] = cnameStat[item].length;
     writeFileSync("dist/statSimple.json", JSON.stringify(cnameStatSimple), { encoding: "utf-8" });
-}
 
-for (const [firstStr, item] of Object.entries(filteredDict)) {
-    item["^updateTime"] = Math.trunc(updateTime.getTime() / 1000);
-    writeFileSync(`dist/${firstStr}.json`, JSON.stringify(item), { encoding: "utf-8" });
-}
+    for (const [firstStr, item] of Object.entries(filteredDict)) {
+        item["^updateTime"] = Math.trunc(updateTime.getTime() / 1000);
+        writeFileSync(`dist/${firstStr}.json`, JSON.stringify(item), { encoding: "utf-8" });
+    }
 
-writeFileSync("dist/times.json", JSON.stringify(timeDict), { encoding: "utf-8" });
-writeFileSync("dist/prMergeTimes.json", JSON.stringify({ "^updateTime": Math.trunc(updateTime.getTime() / 1000), data: prMergeTimeArray }), { encoding: "utf-8" });
+    writeFileSync("dist/times.json", JSON.stringify(timeDict), { encoding: "utf-8" });
+    writeFileSync("dist/prMergeTimes.json", JSON.stringify({ "^updateTime": Math.trunc(updateTime.getTime() / 1000), data: prMergeTimeArray }), { encoding: "utf-8" });
 
-for (const [year, timedItem] of Object.entries(timedDict))
-    writeFileSync(`dist/year${year}.json`, JSON.stringify(timedItem), { encoding: "utf-8" });
+    for (const [year, timedItem] of Object.entries(timedDict))
+        writeFileSync(`dist/year${year}.json`, JSON.stringify(timedItem), { encoding: "utf-8" });
 
-writeFileSync("dist/live.json", JSON.stringify(timeDomains), { encoding: "utf-8" });
+    writeFileSync("dist/live.json", JSON.stringify(timeDomains), { encoding: "utf-8" });
 
-// stats
-{
+    // stats
+
     let content = "# JS.ORG Stats\n";
     content += `- **Updated time:** ${updateTime.toISOString()}\n`;
     content += `- **Total subdomains:** ${Object.keys(cnameDict).length}\n`;
     content += `- **Live subdomains:** ${Object.keys(timeDomains).length - 1}\n`;  // remove `^updateTime`
     writeFileSync("dist/README.md", content, { encoding: "utf-8" });
+
+    await objectReader.close();
 }
+
+main();
