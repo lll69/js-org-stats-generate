@@ -220,7 +220,7 @@ function parseObjectsWithRegex(gitItem: GitItem, lastItem: GitItem) {
         "show",
         lastItem.id + ":cnames_active.js",
     ]);
-    const newCnameActiveJs = check_output([
+    const newCnameActiveJs = spawnOrEmpty([
         "/usr/bin/git",
         "-C",
         "js.org",
@@ -397,13 +397,7 @@ function parseFullItems() {
     let oldCnames: CnameActiveArray, newCnames: CnameActiveArray, oldNSs: NsActiveArray, newNSs: NsActiveArray;
     for (let i = 1; i < fullItems.length; i++) {
         const gitItem = fullItems[i];
-        try {
-            [oldCnames, newCnames, oldNSs, newNSs] = parseObjectsWithRegex(gitItem, fullItems[i - 1]);
-        } catch (e) {
-            console.error(`Error parsing commit ${gitItem.id}...${fullItems[i - 1].id}:`, e, "fallback to legacy method");
-            parseFullItemsFallback(i);
-            continue;
-        }
+        [oldCnames, newCnames, oldNSs, newNSs] = parseObjectsWithRegex(gitItem, fullItems[i - 1]);
         { // parse cnames
             const oldCnameMap = new Map<string, ([value: string, comment: string | null])[]>();
             const newCnameMap = new Map<string, ([value: string, comment: string | null])[]>();
@@ -439,80 +433,6 @@ function parseFullItems() {
             for (const [newNsName, newData] of newNsMap.entries()) {
                 compareCnameNsData([], newData, newNsName, "ns", gitItem);
             }
-        }
-    }
-}
-
-function parseFullItemsFallback(i: number) {
-    {
-        const gitItem = fullItems[i];
-        const originDiff = check_output([
-            "/usr/bin/git",
-            "-C",
-            "js.org",
-            "diff",
-            fullItems[i - 1].id,
-            gitItem.id,
-            "--",
-            "cnames_active.js",
-            "ns_active.js"
-        ]);
-        const parsedDiff = parsePatch(originDiff);
-        for (const file of parsedDiff) {
-            const addItems: Array<any[]> = [];
-            const removeItems: Array<any[]> = [];
-            const addItemsRemoved: Array<any[]> = [];  // avoid duplicated records
-            const removeItemsRemoved: Array<any[]> = [];
-            for (const patch of file.hunks) {
-                for (const line of patch.lines) {
-                    const isAdded = line.startsWith("+"), isRemoved = line.startsWith("-");
-                    if (isAdded || isRemoved) {
-                        const lineStr = line.substring(1).trim();
-                        if (file.newFileName == "b/cnames_active.js") {
-                            const match = lineStr.match(cnameRegex);
-                            if (match == null)
-                                continue
-                            const name: string = JSON.parse(match[1]);
-                            const server: string = JSON.parse(match[2]);
-                            const comment = match[3] || null;
-                            if (isAdded)
-                                addItems.push([name, server, comment, "cname"]);
-                            else
-                                removeItems.push([name, server, comment, "remove"]);
-                        } else if (file.newFileName == "b/ns_active.js") {
-                            const match = lineStr.match(nsRegex);
-                            if (match == null)
-                                continue
-                            const name: string = JSON.parse(match[1]);
-                            const servers: string[] = JSON.parse(match[2]);
-                            const comment = match[3] || null;
-                            if (isAdded)
-                                addItems.push([name, servers, comment, "ns"]);
-                            else
-                                removeItems.push([name, servers, comment, "remove"]);
-                        }
-                    }
-                }
-            }
-            for (const item of removeItems) {
-                for (const addItem of addItems) {
-                    if (_.isEqual(addItem[0], item[0])) {
-                        if (_.isEqual(addItem[1], item[1]) && _.isEqual(addItem[2], item[2])) {
-                            // indention and sorting
-                            addItemsRemoved.push(addItem)
-                        }
-                        // else: modify cname/comment
-                        removeItemsRemoved.push(item)
-                        break
-                    }
-                }
-            }
-            for (const item of addItems)
-                if (!contains(addItemsRemoved, item))
-                    addCnameItem(item[0], item[3], item[1], item[2], gitItem)
-            for (const item of removeItems)
-                if (!contains(removeItemsRemoved, item))
-                    addCnameItem(item[0], item[3], null, null, gitItem)
         }
     }
 }
