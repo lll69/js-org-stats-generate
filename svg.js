@@ -406,7 +406,7 @@ function generateSvgMultipleWithPercent({ x, valuesArray, specialDays, title, la
   let colorIndex = 0;
   for (const values of valuesArray) {
     parts.push(
-      `<path d="${createLinePath(x, values, scaleX, values.isPercent ? scaleYPercent : scaleY)}" fill="none" stroke="${COLORS[colorIndex++]}" stroke-width="2"/>`
+      `<path d="${createLinePath(x, values, scaleX, values.isPercent ? scaleYPercent : scaleY)}" fill="none" stroke="${COLORS[colorIndex++]}" stroke-width="2"${values.isPercent ? ` stroke-dasharray="2,2"` : ""}/>`
     );
   }
 
