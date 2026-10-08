@@ -56,22 +56,24 @@ originLines = originLines.slice(0, Math.floor(originLines.length / 6) * 6);
 
 const items: GitItem[] = [];
 const itemMap: Record<string, GitItem> = {};
-let i = 0, timestamp: number;
-while (i < originLines.length) {
-    timestamp = Number(originLines[i])
-    i += 1
-    let id = originLines[i];
-    i += 1
-    let childIdStr = originLines[i];
-    let childIds: string[] = childIdStr == "" ? [] : childIdStr.split(" ");
-    i += 1
-    let email = originLines[i];
-    i += 1
-    let subject = originLines[i];
-    i += 2
-    let item = new GitItem(timestamp, id, childIds, email, subject);
-    items.push(item);
-    itemMap[id] = item
+{
+    let i = 0, timestamp: number;
+    while (i < originLines.length) {
+        timestamp = Number(originLines[i])
+        i += 1
+        let id = originLines[i];
+        i += 1
+        let childIdStr = originLines[i];
+        let childIds: string[] = childIdStr == "" ? [] : childIdStr.split(" ");
+        i += 1
+        let email = originLines[i];
+        i += 1
+        let subject = originLines[i];
+        i += 2
+        let item = new GitItem(timestamp, id, childIds, email, subject);
+        items.push(item);
+        itemMap[id] = item
+    }
 }
 
 // Emails allowed to appear in the main Git commit path
@@ -84,7 +86,7 @@ const allowedEmails = [
     "matthew@cowley.org.uk",
 ];
 
-// The following Git commits were directly merged into the js.org repo, and we must address this.
+// The following Git commits were directly merged into the js.org repo without merge commit, and we must address this.
 const allowedCommits = {
     "641c1343d02de8831a66a539c7917b79187f52d0": 8514,  // marionette.js.org (#8514) <paul@otterball.com>
     "db6e0d2d71c20f02dea10e70b4b68ee770e3f1d5": null,  // add blackbird.js.org subdomain mapping <arindamdutta132@gmail.com>
