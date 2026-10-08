@@ -212,14 +212,14 @@ function parseNsWithRegex(input: string): NsActiveArray {
     return result;
 }
 
-function parseObjectsWithRegex(gitItem: GitItem, lastItem: GitItem) {
-    const oldCnameActiveJs = spawnOrEmpty([
+function parseObjectsWithRegex(gitItem: GitItem, lastItem: GitItem, lastCnames: CnameActiveArray | undefined, lastNSs: NsActiveArray | undefined) {
+    const oldCnameActiveJs = lastCnames == null ? spawnOrEmpty([
         "/usr/bin/git",
         "-C",
         "js.org",
         "show",
         lastItem.id + ":cnames_active.js",
-    ]);
+    ]) : null;
     const newCnameActiveJs = spawnOrEmpty([
         "/usr/bin/git",
         "-C",
@@ -227,13 +227,13 @@ function parseObjectsWithRegex(gitItem: GitItem, lastItem: GitItem) {
         "show",
         gitItem.id + ":cnames_active.js",
     ]);
-    const oldNsActiveJs = spawnOrEmpty([
+    const oldNsActiveJs = lastNSs == null ? spawnOrEmpty([
         "/usr/bin/git",
         "-C",
         "js.org",
         "show",
         lastItem.id + ":ns_active.js",
-    ]);
+    ]) : null;
     const newNsActiveJs = spawnOrEmpty([
         "/usr/bin/git",
         "-C",
@@ -242,9 +242,9 @@ function parseObjectsWithRegex(gitItem: GitItem, lastItem: GitItem) {
         gitItem.id + ":ns_active.js",
     ]);
     return [
-        parseCnameWithRegex(oldCnameActiveJs),
+        lastCnames == null ? parseCnameWithRegex(oldCnameActiveJs!) : lastCnames,
         parseCnameWithRegex(newCnameActiveJs),
-        parseNsWithRegex(oldNsActiveJs),
+        lastNSs == null ? parseNsWithRegex(oldNsActiveJs!) : lastNSs,
         parseNsWithRegex(newNsActiveJs),
     ] as const;
 }
@@ -394,10 +394,10 @@ function compareCnameNsData<T>(
 }
 
 function parseFullItems() {
-    let oldCnames: CnameActiveArray, newCnames: CnameActiveArray, oldNSs: NsActiveArray, newNSs: NsActiveArray;
+    let oldCnames: CnameActiveArray, newCnames: CnameActiveArray | undefined, oldNSs: NsActiveArray, newNSs: NsActiveArray | undefined;
     for (let i = 1; i < fullItems.length; i++) {
         const gitItem = fullItems[i];
-        [oldCnames, newCnames, oldNSs, newNSs] = parseObjectsWithRegex(gitItem, fullItems[i - 1]);
+        [oldCnames, newCnames, oldNSs, newNSs] = parseObjectsWithRegex(gitItem, fullItems[i - 1], newCnames, newNSs);
         { // parse cnames
             const oldCnameMap = new Map<string, ([value: string, comment: string | null])[]>();
             const newCnameMap = new Map<string, ([value: string, comment: string | null])[]>();
