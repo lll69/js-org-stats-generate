@@ -414,13 +414,13 @@ function generateSvgMultipleWithPercent({ x, valuesArray, specialDays, title, la
   colorIndex = 0;
   let lx = plotLeft + 20;
   let ly = plotTop + 28;
-  for (const label of labels) {
-    parts.push(`<line x1="${lx}" y1="${ly}" x2="${lx + 35}" y2="${ly}" stroke="${COLORS[colorIndex++]}" stroke-width="2"/>`);
+  labels.forEach((label, idx) => {
+    parts.push(`<line x1="${lx}" y1="${ly}" x2="${lx + 35}" y2="${ly}" stroke="${COLORS[colorIndex++]}" stroke-width="2"${valuesArray[idx].isPercent ? ` stroke-dasharray="2,2"` : ""}/>`);
     parts.push(
       `<text x="${lx + 45}" y="${ly}" dy="0.35em" font-family="sans-serif" font-size="${FONT_SIZE}">${escapeXml(label)}</text>`
     );
     ly += 25;
-  }
+  });
 
   parts.push("</svg>");
   return parts.join("\n");
