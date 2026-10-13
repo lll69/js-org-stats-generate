@@ -74,7 +74,7 @@ async function input(question: string): Promise<string> {
             const pullUserId = Number(pull["user"]["id"]);
             const pullUserLogin = pull["user"]["login"];
 
-            const pullLabels = pull["label"] == null ? null : pull["label"].map(x => ({
+            const pullLabels = pull["labels"] == null ? null : pull["labels"].map(x => ({
                 name: x.name,
                 description: x.description,
             }));
@@ -97,7 +97,7 @@ async function input(question: string): Promise<string> {
                 "sha": pullMergeSha,
                 "userId": pullUserId,
                 "userLogin": pullUserLogin,
-                "label": pullLabels,
+                "labels": pullLabels,
             };
             parsedPulls += 1;
         }
