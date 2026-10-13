@@ -72,7 +72,7 @@ async function input(question: string): Promise<string> {
             const pullMergeTime: string | null = pull["merged_at"];
             const pullMergeSha: string | null = pull["merge_commit_sha"];
             const pullUserId = Number(pull["user"]["id"]);
-            const pullUserLogin = Number(pull["user"]["login"]);
+            const pullUserLogin = pull["user"]["login"];
 
             const pullLabels = pull["label"] == null ? null : pull["label"].map(x => ({
                 name: x.name,
