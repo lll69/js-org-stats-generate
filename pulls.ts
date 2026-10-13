@@ -72,6 +72,12 @@ async function input(question: string): Promise<string> {
             const pullMergeTime: string | null = pull["merged_at"];
             const pullMergeSha: string | null = pull["merge_commit_sha"];
             const pullUserId = Number(pull["user"]["id"]);
+            const pullUserLogin = Number(pull["user"]["login"]);
+
+            const pullLabels = pull["label"] == null ? null : pull["label"].map(x => ({
+                name: x.name,
+                description: x.description,
+            }));
 
             if (pullNum == 0) {
                 console.log("Invalid pull: " + pull);
@@ -90,6 +96,8 @@ async function input(question: string): Promise<string> {
                 "merge": pullMergeTime,
                 "sha": pullMergeSha,
                 "userId": pullUserId,
+                "userLogin": pullUserLogin,
+                "label": pullLabels,
             };
             parsedPulls += 1;
         }
