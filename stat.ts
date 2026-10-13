@@ -29,6 +29,8 @@ class GitItem {
     }
 }
 
+const numSort = (a: number, b: number) => a - b;
+
 const updateTime = new Date();
 
 const originExec = spawnSync("/usr/bin/git", ["-C", "js.org", "log", "--format=%at%n%H%n%P%n%ae%n%s%n"], { encoding: "utf-8", maxBuffer: 104857600 });
@@ -94,19 +96,19 @@ function isAllowed(item: GitItem) {
     return (allowedEmails.indexOf(item.email) >= 0 || allowedCommits.hasOwnProperty(item.id)) && (disallowedCommits.indexOf(item.id) < 0);
 }
 
-function bfs(headId: string, firstId: string): string[] {
+function bfs(headId: string, firstId: string, shaToPullNumMap: ReturnType<typeof generatePrTimeArrays>[2]): string[] {
     const bfs = new Deque<string>();
     const vis = new Set<string>();
     const parent: Record<string, string> = {};
     bfs.pushBack(headId);
-    if (!isAllowed(itemMap[headId]))
+    if (!isAllowed(itemMap[headId]) && !shaToPullNumMap.has(headId))
         throw new Error(`Unexpected Head ${headId}`);
     let id: string;
     while (bfs.size() > 0) {
         id = bfs.popFront();
         if (!vis.has(id)) {
             const item = itemMap[id];
-            if (isAllowed(item)) {
+            if (isAllowed(item) || shaToPullNumMap.has(id)) {
                 vis.add(id)
                 for (const childId of item.childIds) {
                     if (!vis.has(childId)) {
@@ -138,20 +140,26 @@ function bfs(headId: string, firstId: string): string[] {
 
 const mergeItems: GitItem[] = [];
 const commitRegex = /^Merge pull request #(\d+) from (.*)/;
-for (const item of items) {
-    if (isAllowed(item)) {
-        const match = item.subject.match(commitRegex);
-        if (match)
-            mergeItems.push(item);
-    }
-}
-mergeItems.push(itemMap["86da41b2e348bac3e49056ab9e3296a57a322206"]);  // Initial commit
+const fullItems: GitItem[] = [];
+let prTimeArrays: ReturnType<typeof generatePrTimeArrays>;
 
-const fullItems = [mergeItems[mergeItems.length - 1]];
-for (let i = mergeItems.length - 2; i >= 0; i--) {
-    const bfsResult = bfs(mergeItems[i].id, mergeItems[i + 1].id);
-    for (let j = 1; j < bfsResult.length; j++)
-        fullItems.push(itemMap[bfsResult[j]]);
+function fillMergeAndFullItems() {
+    const shaToPullNumMap = prTimeArrays[2];
+    for (const item of items) {
+        if (isAllowed(item) || shaToPullNumMap.has(item.id)) {
+            const match = item.subject.match(commitRegex);
+            if (match || shaToPullNumMap.has(item.id))
+                mergeItems.push(item);
+        }
+    }
+    mergeItems.push(itemMap["86da41b2e348bac3e49056ab9e3296a57a322206"]);  // Initial commit
+
+    fullItems.push(mergeItems[mergeItems.length - 1]);
+    for (let i = mergeItems.length - 2; i >= 0; i--) {
+        const bfsResult = bfs(mergeItems[i].id, mergeItems[i + 1].id, shaToPullNumMap);
+        for (let j = 1; j < bfsResult.length; j++)
+            fullItems.push(itemMap[bfsResult[j]]);
+    }
 }
 
 const cnameRegex = /^,?\s*("[a-z0-9_\-\.\\]*")\s*\:\s*("[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?/;
@@ -168,8 +176,10 @@ class ObjectReader {
     proc: ChildProcessWithoutNullStreams;
     buffer: Buffer;
     private pending: ((result: string) => void)[];
+    private readObjectCount: number;
 
     constructor() {
+        this.readObjectCount = 0;
         this.buffer = Buffer.alloc(0);
         this.pending = [];
         this.proc = spawn("/usr/bin/git", ["-C", "js.org", "cat-file", "--batch=%(objectsize)"]);
@@ -225,6 +235,9 @@ class ObjectReader {
                 resolve(result);
             });
         });
+        if ((++this.readObjectCount) % 1000 == 0) {
+            console.log("Reading Object #" + this.readObjectCount);
+        }
         this.proc.stdin.write(Buffer.from(refName + "\n", "utf8"));
         this.tryParseBuffer();
         return promise;
@@ -326,19 +339,25 @@ function addCnameItem(name: string, itemType: string, server: string | string[] 
     }
     let historyItem: Partial<HistoryItem> = {};
     dictItem["history"].push(historyItem);
-    historyItem["time"] = item.time
-    historyItem["type"] = itemType
+    historyItem["time"] = item.time;
+    historyItem["type"] = itemType;
     historyItem["server"] = server!;
-    historyItem["comment"] = comment
-    historyItem["commit"] = item.id
-    const pushMatch = item.subject.match(commitRegex);
+    historyItem["comment"] = comment;
+    historyItem["commit"] = item.id;
+    let pushMatch = prTimeArrays[2].get(item.id);
+    if (pushMatch == null) {
+        const pushMatchRegex = item.subject.match(commitRegex);
+        if (pushMatchRegex != null) {
+            pushMatch = Number(pushMatchRegex[1]);
+        }
+    }
     if (pushMatch == null)
         if (allowedCommits.hasOwnProperty(item.id))
-            historyItem["pull"] = allowedCommits[item.id]
+            historyItem["pull"] = allowedCommits[item.id];
         else
             historyItem["pull"] = null;
     else
-        historyItem["pull"] = Number(pushMatch[1])
+        historyItem["pull"] = pushMatch;
 }
 
 function putCnameNsMap<T>(
@@ -571,22 +590,26 @@ function isRemoveHistory(item) {
 function generatePrTimeArrays() {
     const timeArray: number[] = [];
     const mergeTimeArray: number[] = [];
+    const shaToPullNumMap = new Map<string, number>();
     const baseDir = "dist/pulls/";
     for (const name of readdirSync(baseDir)) {
         if (!name.endsWith(".json"))
             continue
         const data = JSON.parse(readFileSync(baseDir + name, { encoding: "utf-8" }));
-        for (const prData of Object.values(data)) {
+        for (const [key, prData] of Object.entries(data)) {
             timeArray.push(Math.trunc(Date.parse((prData as any)["create"]) / 1000));
             const mergeTime: string | null = (prData as any)["merge"];
             if (mergeTime != null) {
                 mergeTimeArray.push(Math.trunc(Date.parse(mergeTime) / 1000));
             }
+            if ((prData as any)["sha"] != null) {
+                shaToPullNumMap.set((prData as any)["sha"], Number(key));
+            }
         }
     }
-    timeArray.sort();
-    mergeTimeArray.sort();
-    return [timeArray, mergeTimeArray];
+    timeArray.sort(numSort);
+    mergeTimeArray.sort(numSort);
+    return [timeArray, mergeTimeArray, shaToPullNumMap] as const;
 }
 
 function generateTimeDictsAndArray() {
@@ -650,13 +673,12 @@ function generateTimeDictsAndArray() {
     }
     const resultDict = { "^updateTime": Math.trunc(updateTime.getTime() / 1000) };
     resultDict["data"] = resultArray;
-    const prTimeArrays = generatePrTimeArrays();
     resultDict["prData"] = prTimeArrays[0];
     for (const timedDictItem of Object.values(timedDict))
         for (const timedItem of Object.values(timedDictItem))
             if (Array.isArray(timedItem))
                 timedItem.sort()
-    return [resultDict, timedDict, prTimeArrays[1]];
+    return [resultDict, timedDict, prTimeArrays[1], prTimeArrays[2]];
 }
 
 function generateTimeDomains() {
@@ -668,6 +690,8 @@ function generateTimeDomains() {
 }
 
 async function main() {
+    prTimeArrays = generatePrTimeArrays();
+    fillMergeAndFullItems();
     await parseFullItems();
     const commitItems = generateCommitItems();
     const cnameStat = generateCnameStat();
