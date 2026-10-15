@@ -601,9 +601,9 @@ function generatePrTimeArrays() {
             const mergeTime: string | null = (prData as any)["merge"];
             if (mergeTime != null) {
                 mergeTimeArray.push(Math.trunc(Date.parse(mergeTime) / 1000));
-            }
-            if ((prData as any)["sha"] != null) {
-                shaToPullNumMap.set((prData as any)["sha"], Number(key));
+                if ((prData as any)["sha"] != null) {
+                    shaToPullNumMap.set((prData as any)["sha"], Number(key));
+                }
             }
         }
     }
