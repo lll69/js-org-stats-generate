@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { Deque } from "@datastructures-js/deque";
 import { stderr } from "node:process";
 
@@ -740,6 +740,9 @@ async function main() {
     content += `- **Total subdomains:** ${Object.keys(cnameDict).length}\n`;
     content += `- **Live subdomains:** ${Object.keys(timeDomains).length - 1}\n`;  // remove `^updateTime`
     writeFileSync("dist/README.md", content, { encoding: "utf-8" });
+
+    copyFileSync("js.org/cnames_active.js", "dist/original_js.org_cnames_active.js");
+    copyFileSync("js.org/ns_active.js", "dist/original_js.org_ns_active.js");
 
     await objectReader.close();
 }
