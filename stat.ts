@@ -268,9 +268,10 @@ const unparsableSet = new Set<string>();
 function parseCnameWithRegex(input: string): CnameActiveArray {
     const result: CnameActiveArray = [];
     for (const line of input.split("\n")) {
-        const match = line.trim().match(cnameRegex);
+        const trimmedLine = line.trim();
+        const match = trimmedLine.match(cnameRegex);
         if (match == null) {
-            if (DEBUG) unparsableSet.add(line.trim());
+            if (DEBUG) unparsableSet.add(trimmedLine);
             continue;
         }
         const name: string = (JSON.parse(match[1]) as string).toLocaleLowerCase("en");
@@ -284,9 +285,10 @@ function parseCnameWithRegex(input: string): CnameActiveArray {
 function parseNsWithRegex(input: string): NsActiveArray {
     const result: NsActiveArray = [];
     for (const line of input.split("\n")) {
-        const match = line.trim().match(nsRegex);
+        const trimmedLine = line.trim();
+        const match = trimmedLine.match(nsRegex);
         if (match == null) {
-            if (DEBUG) unparsableSet.add(line.trim());
+            if (DEBUG) unparsableSet.add(trimmedLine);
             continue;
         }
         const name: string = (JSON.parse(match[1]) as string).toLocaleLowerCase("en");
