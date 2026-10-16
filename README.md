@@ -14,3 +14,30 @@ Stats for js.org
 * `salvattore` has duplicated records with same mapping, removed in commit [1909bee](https://github.com/js-org/js.org/commit/1909beed06c886c9864005652b97eaac2c6220f2).
 * `medit` has duplicated records with same mapping, removed in commit [66f077d](https://github.com/js-org/js.org/commit/66f077dd15acb7f17f029a9af6dd8612dfe61e64).
 * `mina` has duplicated records with different mapping, created in commit [ce463b0](https://github.com/js-org/js.org/commit/ce463b0d94534df03715974264a0ca568649538a) and removed in commit [966ab7f](https://github.com/js-org/js.org/commit/966ab7f0c6fd8390aa09c5720b919760de12a212).
+
+Malformed lines:
+```
+"boats" "discordboats.github.io",
+"guilded": "https://guildedjs.github.io/guilded.js/",
+"hsiaoyi0504", "hsiaoyi0504.github.io",
+"hytalebrasil: "hytalebrasil.github.io",
+"portafolio-web"; "velazquezadrian.github.io/Portafolio-web",
+"prismarine", "prismarinejs.github.io",
+"ranmess ": "ultirequiem.github.io/ranmess",
+, "angularstompdk"; "davinkevin.github.io/AngularStompDK"
+, "comixngn": "http://seun40.github.io/comix-ngn"
+, "festercluck", "festercluck.github.io"
+, "flowchart: "adrai.github.io/flowchart.js"
+, "greg:" "gregorydgarcia.github.io"
+, "select_io": "http://selaromi.github.io/select_io"
+, "spectragram,": "adrianengine.github.io/jquery-spectragram"
+,"antwar", "antwarjs.github.io/antwar"
+,"latte","tehsenaus.github.io/latte-js"
+,"parallel": "https://parallel-js.github.io/parallel.js/"
+,"penn-sdk": "http://pennlabs.github.io/penn-sdk-node"
+,"revaluate" "hasharray.github.io/revaluate.js"
+,"spectragram,": "adrianengine.github.io/jquery-spectragram"
+,"spectragram,": "adrianengine.github.io/jquery-spectragram" //noCF?
+,"spectragram,": "adrianengine.github.io/jquery-spectragram" //noCF? (don´t add this in a new PR)
+,"thingamajig: "hasharray.github.io/thingamajig"
+```
