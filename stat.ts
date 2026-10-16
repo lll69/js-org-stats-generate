@@ -278,6 +278,10 @@ function stripAndLowerName(name: string): string {
     return name.toLocaleLowerCase("en");
 }
 
+function logMalformed(line: string) {
+    console.log("Malformed line:", line);
+}
+
 function parseCnameWithRegex(input: string): CnameActiveArray {
     const result: CnameActiveArray = [];
     for (const line of input.split("\n")) {
@@ -292,7 +296,11 @@ function parseCnameWithRegex(input: string): CnameActiveArray {
                 if (match == null) {
                     if (DEBUG) unparsableSet.add(trimmedLine);
                     continue;
+                } else {
+                    logMalformed(trimmedLine);
                 }
+            } else {
+                logMalformed(trimmedLine);
             }
         }
         const name: string = stripAndLowerName(malformedString ? JSON.parse(`"${match[1]}"`) : JSON.parse(match[1]));
