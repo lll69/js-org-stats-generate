@@ -96,26 +96,26 @@ function isAllowed(item: GitItem) {
     return (allowedEmails.indexOf(item.email) >= 0 || allowedCommits.hasOwnProperty(item.id)) && (disallowedCommits.indexOf(item.id) < 0);
 }
 
-function bfs(headId: string, firstId: string, shaToPullNumMap: ReturnType<typeof generatePrTimeArrays>[2]): string[] {
-    const bfs = new Deque<string>();
+function bfs(headId: string, firstId: string, shaToPullNumMap: ReturnType<typeof generatePrTimeArrays>[2], force?: boolean): string[] {
+    const bfsDeque = new Deque<string>();
     const vis = new Set<string>();
     const parent: Record<string, string> = {};
-    bfs.pushBack(headId);
+    bfsDeque.pushBack(headId);
     if (!isAllowed(itemMap[headId]) && !shaToPullNumMap.has(headId))
         throw new Error(`Unexpected Head ${headId}`);
     let id: string;
-    while (bfs.size() > 0) {
-        id = bfs.popFront();
+    while (bfsDeque.size() > 0) {
+        id = bfsDeque.popFront();
         if (!vis.has(id)) {
             const item = itemMap[id];
-            if (isAllowed(item) || shaToPullNumMap.has(id)) {
+            if (force || isAllowed(item) || shaToPullNumMap.has(id)) {
                 vis.add(id)
                 for (const childId of item.childIds) {
                     if (!vis.has(childId)) {
                         parent[childId] = id
-                        bfs.pushBack(childId);
+                        bfsDeque.pushBack(childId);
                         if (childId == firstId) {
-                            bfs.clear()
+                            bfsDeque.clear()
                             break
                         }
                     }
@@ -124,8 +124,13 @@ function bfs(headId: string, firstId: string, shaToPullNumMap: ReturnType<typeof
         }
     }
     id = firstId
-    if (!(parent.hasOwnProperty(id)))
-        throw new Error(`Unexpected Tail ${headId}-${firstId}`);
+    if (!(parent.hasOwnProperty(id))) {
+        if (force) {
+            throw new Error(`Unexpected Tail ${headId}-${firstId}`);
+        }
+        console.warn(`Cannot find a preferred path from ${headId} to ${firstId}, it might be a fast-forward merge, continuing anyway!`);
+        return bfs(headId, firstId, shaToPullNumMap, true);
+    }
     const result: string[] = [];
     while (true) {
         result.push(id);
