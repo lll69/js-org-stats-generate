@@ -1,6 +1,5 @@
 
 "boats" "discordboats.github.io",
-"guilded": "https://guildedjs.github.io/guilded.js/",
 "hsiaoyi0504", "hsiaoyi0504.github.io",
 "hytalebrasil: "hytalebrasil.github.io",
 "portafolio-web"; "velazquezadrian.github.io/Portafolio-web",
@@ -86,16 +85,12 @@
 ***** ACTIVE SUBDOMAINS (NS records)
 */
 , "angularstompdk"; "davinkevin.github.io/AngularStompDK"
-, "comixngn": "http://seun40.github.io/comix-ngn"
 , "festercluck", "festercluck.github.io"
 , "flowchart: "adrai.github.io/flowchart.js"
 , "greg:" "gregorydgarcia.github.io"
-, "select_io": "http://selaromi.github.io/select_io"
 , "spectragram,": "adrianengine.github.io/jquery-spectragram"
 ,"antwar", "antwarjs.github.io/antwar"
 ,"latte","tehsenaus.github.io/latte-js"
-,"parallel": "https://parallel-js.github.io/parallel.js/"
-,"penn-sdk": "http://pennlabs.github.io/penn-sdk-node"
 ,"revaluate" "hasharray.github.io/revaluate.js"
 ,"spectragram,": "adrianengine.github.io/jquery-spectragram"
 ,"spectragram,": "adrianengine.github.io/jquery-spectragram" //noCF?
