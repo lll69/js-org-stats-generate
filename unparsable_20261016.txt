@@ -1,0 +1,107 @@
+
+"boats" "discordboats.github.io",
+"guilded": "https://guildedjs.github.io/guilded.js/",
+"hsiaoyi0504", "hsiaoyi0504.github.io",
+"hytalebrasil: "hytalebrasil.github.io",
+"portafolio-web"; "velazquezadrian.github.io/Portafolio-web",
+"prismarine", "prismarinejs.github.io",
+"ranmess ": "ultirequiem.github.io/ranmess",
+*
+*              (all the lines marked with '// noCF?' are from a time when a requester had to explicitly opt-in;
+*              (all the lines marked with '//noCF?' are from a time when a requester had to explicitly opt-in;
+*              (with the requestd domain, e.g: "foo.js.org") to your repository before the pull request.
+*              (with the requested domain, e.g.: "foo.js.org") to your repository before the pull request.
+*              (with the requested domain, e.g.: "foo.js.org") to your repository.
+*              (with the requested domain, e.g: "foo.js.org") to your repository before the pull request.
+*              BECAUSE OF THE RISK OF ABUSE, I'M NOT ACCEPTING REQUESTS FOR PAGES WITHOUT REASONABLE CONTENT!
+*              BECAUSE OF THE RISK OF ABUSE, I´M NOT ACCEPTING REQUESTS FOR PAGES WITHOUT REASONABLE CONTENT!
+*              Because of the risk of abuse I´m no longer merging requests for pages without content!
+*              Because of the risk of abuse I´m not accepting requests for pages without reasonable content!
+*              Because of the risk of abuse I�m no longer merging pages without content!!!
+*              Because of the risk of abuse I�m no longer merging requests for pages without content!
+*              Because of the risk of abuse, I´m not accepting requests for pages without reasonable content!
+*              Before you start a request for your personal fork of "jquery" or "angular" you should read
+*              Before you start a request for your personal fork of "jquery" or "angular" you should read the section "naming conflicts" in the wiki!
+*              Before you start a request for your personal fork of "react" or "vue" you should read
+*              But you can opt-out from this and make Cloudflare forward all requests directly to GitHub.
+*              GitHub. But as an opt-in you can make CloudFlare proxy requests to your subdomain
+*              Just add '// noCF' in the line of your requested subdomain to give us a hint.
+*              Just add '//CF' in the line of your requested subdomain to give me a hint.
+*              Just add '//noCF' in the line of your requested subdomain to give me a hint.
+*              Just add '//noCF' in the line of your requested subdomain to give us a hint.
+*              SSL support (https://foo.js.org) and make use of browser caching with a TTL of 30 min.
+*              The requested subdomain must match either your GitHub username or the name of your project
+*              The requested subdomain must match either your GitHub username or the name of your project repository. Execeptions are possible for the sake of clarity (e.g. if your project has the name "foojs" you can request "foo").
+*              This isn´t widely tested and may have some unforeseen drawbacks!
+*              is valid syntax.
+*              name "foojs" you can request "foo").
+*              or "foo.github.io/bar" for a Project Page).
+*              order. Each line apart from the very last entry should have a comma after it to ensure this file
+*              repository. Exceptions are possible for the sake of clarity (e.g. if your project has the
+*              repository. Execeptions are possible for the sake of clarity (e.g. if your project has the
+*              see: https://github.com/js-org/dns.js.org/issues/554)
+*              see: https://github.com/js-org/js.org/issues/554)
+*              subdomain to give me a hint. (CloudFlares caching as a CDN is bypassed by default)
+*              the section "naming conflicts" in the wiki!
+*              to GitHub. But as an opt-in you can make CloudFlare proxy requests to your subdomain to get
+*              to get SSL support (https://foo.js.org) and make use of browser caching with a TTL of 30 min.
+*              to get SSL support (https://foo.js.org). Just add '//CF' in the line of your requested
+*              with space between the colon (after the key) and the value and should always be in alphabetical
+* ***********
+* ****************
+* ***********************
+* <3
+* CLOUDFLARE:  JS.ORG uses CloudFlare as its DNS. By default CloudFlare redirects all requests directly to
+* CLOUDFLARE:  JS.ORG uses CloudFlare as its DNS. By default, CloudFlare forwards all requests directly
+* CLOUDFLARE:  JS.ORG uses CloudFlare as its DNS. By default, CloudFlare forwards all requests directly to
+* CLOUDFLARE:  JS.ORG uses CloudFlare as its DNS. By default, CloudFlare proxies all requests to your subdomain
+* CLOUDFLARE:  JS.ORG uses CloudFlare as its DNS. By default, CloudFlare redirects all requests directly to
+* CLOUDFLARE:  JS.ORG uses Cloudflare as its DNS. By default, Cloudflare proxies all requests to your subdomain
+* FYI: https://github.com/js-org/js.org/issues/2890
+* IMPORTANT:   To authorise yourself as the owner of the GitHub Page you must have a valid CNAME file
+* IMPORTANT:   To authorise yourself as the owner of the GitHub Page you must have a valid CNAME file (with the requestd domain, e.g: "foo.js.org") to your repository before the pull request
+* IMPORTANT:   To authorise yourself as the owner of the GitHub Page you must have added a valid CNAME file
+* IMPORTANT:   To authorize yourself as the owner of the GitHub Page you must have added a valid CNAME file
+* KEY:         The subdomain you request (e.g.: "foo" would give the custom domain "foo.js.org" ).
+* KEY:         The subdomain you request (e.g.: "foo" would give the custom domain "foo.js.org").
+* NOTICE:      It would be nice if you could keep the alphabetical order.
+* NOTICE:      Please follow the format set by everyone else in this file. Entries should use double quotes,
+* Second level NS records makes it possible for subdomain owners to redirect to another DNS provider.
+* The allocation of new ns records is discontinued (at the moment)
+* This list contains NS records in extension to the list of active CNAMEs in this repository.
+* This option has potential security issues (e.g. if you use another DNS provider to add MX records to route your email traffic)
+* VALUE:       The regular domain provided by GitHub (e.g.: "foo.github.io" for a User-/Organisation Page
+* VALUE:       The regular domain provided by GitHub (e.g.: "foo.github.io" for a User-/Organisation Page or "foo.github.io/bar" for a Project Page).
+* VALUE:       The regular domain provided by GitHub (e.g.: "foo.github.io" for a User-/Organization Page
+* You should avoid this option if you only want a JS.ORG subdomain!!!
+* and is only meant for advanced users.
+* file a pull request to add your own GitHub Page
+* for the moment the following subdomains are active
+* insert them in alphabetical order to help reduce merge conflicts.
+* please don"t add your subdomain records down here!
+* please don't add your subdomain records down here!
+**** EXPLANATION
+**** README
+***** ACTIVE SUBDOMAINS
+***** ACTIVE SUBDOMAINS (NS records)
+*/
+, "angularstompdk"; "davinkevin.github.io/AngularStompDK"
+, "comixngn": "http://seun40.github.io/comix-ngn"
+, "festercluck", "festercluck.github.io"
+, "flowchart: "adrai.github.io/flowchart.js"
+, "greg:" "gregorydgarcia.github.io"
+, "select_io": "http://selaromi.github.io/select_io"
+, "spectragram,": "adrianengine.github.io/jquery-spectragram"
+,"antwar", "antwarjs.github.io/antwar"
+,"latte","tehsenaus.github.io/latte-js"
+,"parallel": "https://parallel-js.github.io/parallel.js/"
+,"penn-sdk": "http://pennlabs.github.io/penn-sdk-node"
+,"revaluate" "hasharray.github.io/revaluate.js"
+,"spectragram,": "adrianengine.github.io/jquery-spectragram"
+,"spectragram,": "adrianengine.github.io/jquery-spectragram" //noCF?
+,"spectragram,": "adrianengine.github.io/jquery-spectragram" //noCF? (don´t add this in a new PR)
+,"thingamajig: "hasharray.github.io/thingamajig"
+/*
+var cnames_active = {
+var ns_active = {
+}
