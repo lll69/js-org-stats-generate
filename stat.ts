@@ -171,6 +171,7 @@ function fillMergeAndFullItems() {
 
 const cnameRegex = /^,?\s*("[A-Za-z0-9_\-\.\\]*[\:\;\,\s]?")\s*\:\s*("(?:https?:\/\/)?[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?/;
 const nsRegex = /^,?\s*("[A-Za-z0-9_\-\.\\]+")\s*\:\s*(\[.+\])\s*,?\s*(\/\/.+)?/;
+const cnameRegexMalformed1 = /^,?\s*("[A-Za-z0-9_\-\.\\]*[\:\;\,\s]?")\s*[\:\;\,\s]\s*("(?:https?:\/\/)?[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?/;
 const cnameDict: Record<string, any> = {};
 
 type CnameActiveArrayItem = [name: string, value: string, comment: string | null];
@@ -280,10 +281,13 @@ function parseCnameWithRegex(input: string): CnameActiveArray {
     const result: CnameActiveArray = [];
     for (const line of input.split("\n")) {
         const trimmedLine = line.trim();
-        const match = trimmedLine.match(cnameRegex);
+        let match = trimmedLine.match(cnameRegex);
         if (match == null) {
-            if (DEBUG) unparsableSet.add(trimmedLine);
-            continue;
+            match = trimmedLine.match(cnameRegexMalformed1);
+            if (match == null) {
+                if (DEBUG) unparsableSet.add(trimmedLine);
+                continue;
+            }
         }
         const name: string = stripAndLowerName(JSON.parse(match[1]) as string);
         const server: string = JSON.parse(match[2]);

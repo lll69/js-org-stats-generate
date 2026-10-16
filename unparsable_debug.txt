@@ -1,9 +1,5 @@
 
-"boats" "discordboats.github.io",
-"hsiaoyi0504", "hsiaoyi0504.github.io",
 "hytalebrasil: "hytalebrasil.github.io",
-"portafolio-web"; "velazquezadrian.github.io/Portafolio-web",
-"prismarine", "prismarinejs.github.io",
 *
 *              (all the lines marked with '// noCF?' are from a time when a requester had to explicitly opt-in;
 *              (all the lines marked with '//noCF?' are from a time when a requester had to explicitly opt-in;
@@ -83,13 +79,7 @@
 ***** ACTIVE SUBDOMAINS
 ***** ACTIVE SUBDOMAINS (NS records)
 */
-, "angularstompdk"; "davinkevin.github.io/AngularStompDK"
-, "festercluck", "festercluck.github.io"
 , "flowchart: "adrai.github.io/flowchart.js"
-, "greg:" "gregorydgarcia.github.io"
-,"antwar", "antwarjs.github.io/antwar"
-,"latte","tehsenaus.github.io/latte-js"
-,"revaluate" "hasharray.github.io/revaluate.js"
 ,"thingamajig: "hasharray.github.io/thingamajig"
 /*
 var cnames_active = {
