@@ -162,8 +162,8 @@ function fillMergeAndFullItems() {
     }
 }
 
-const cnameRegex = /^,?\s*("[a-z0-9_\-\.\\]*")\s*\:\s*("[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?/;
-const nsRegex = /^,?\s*("[a-z0-9_\-\.\\]+")\s*\:\s*(\[.+\])\s*,?\s*(\/\/.+)?/;
+const cnameRegex = /^,?\s*("[A-Za-z0-9_\-\.\\]*")\s*\:\s*("[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?/;
+const nsRegex = /^,?\s*("[A-Za-z0-9_\-\.\\]+")\s*\:\s*(\[.+\])\s*,?\s*(\/\/.+)?/;
 const cnameDict: Record<string, any> = {};
 
 type CnameActiveArrayItem = [name: string, value: string, comment: string | null];
@@ -262,7 +262,7 @@ function parseCnameWithRegex(input: string): CnameActiveArray {
         const match = line.trim().match(cnameRegex);
         if (match == null)
             continue;
-        const name: string = JSON.parse(match[1]);
+        const name: string = (JSON.parse(match[1]) as string).toLocaleLowerCase("en");
         const server: string = JSON.parse(match[2]);
         const comment = match[3] || null;
         result.push([name, server, comment]);
@@ -276,7 +276,7 @@ function parseNsWithRegex(input: string): NsActiveArray {
         const match = line.trim().match(nsRegex);
         if (match == null)
             continue;
-        const name: string = JSON.parse(match[1]);
+        const name: string = (JSON.parse(match[1]) as string).toLocaleLowerCase("en");
         const servers: string[] = JSON.parse(match[2]);
         const comment = match[3] || null;
         result.push([name, servers, comment]);
