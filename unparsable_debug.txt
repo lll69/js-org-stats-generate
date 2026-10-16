@@ -4,7 +4,6 @@
 "hytalebrasil: "hytalebrasil.github.io",
 "portafolio-web"; "velazquezadrian.github.io/Portafolio-web",
 "prismarine", "prismarinejs.github.io",
-"ranmess ": "ultirequiem.github.io/ranmess",
 *
 *              (all the lines marked with '// noCF?' are from a time when a requester had to explicitly opt-in;
 *              (all the lines marked with '//noCF?' are from a time when a requester had to explicitly opt-in;
@@ -88,13 +87,9 @@
 , "festercluck", "festercluck.github.io"
 , "flowchart: "adrai.github.io/flowchart.js"
 , "greg:" "gregorydgarcia.github.io"
-, "spectragram,": "adrianengine.github.io/jquery-spectragram"
 ,"antwar", "antwarjs.github.io/antwar"
 ,"latte","tehsenaus.github.io/latte-js"
 ,"revaluate" "hasharray.github.io/revaluate.js"
-,"spectragram,": "adrianengine.github.io/jquery-spectragram"
-,"spectragram,": "adrianengine.github.io/jquery-spectragram" //noCF?
-,"spectragram,": "adrianengine.github.io/jquery-spectragram" //noCF? (don´t add this in a new PR)
 ,"thingamajig: "hasharray.github.io/thingamajig"
 /*
 var cnames_active = {

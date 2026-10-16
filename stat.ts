@@ -169,7 +169,7 @@ function fillMergeAndFullItems() {
     }
 }
 
-const cnameRegex = /^,?\s*("[A-Za-z0-9_\-\.\\]*")\s*\:\s*("(?:https?:\/\/)?[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?/;
+const cnameRegex = /^,?\s*("[A-Za-z0-9_\-\.\\]*[\:\;\,\s]?")\s*\:\s*("(?:https?:\/\/)?[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?/;
 const nsRegex = /^,?\s*("[A-Za-z0-9_\-\.\\]+")\s*\:\s*(\[.+\])\s*,?\s*(\/\/.+)?/;
 const cnameDict: Record<string, any> = {};
 
@@ -265,6 +265,17 @@ const objectReader = new ObjectReader();
 
 const unparsableSet = new Set<string>();
 
+function stripAndLowerName(name: string): string {
+    const len = name.length;
+    if (len > 0) {
+        const lastChar = name[len - 1];
+        if (lastChar === ":" || lastChar === "," || lastChar === ";" || lastChar === " ") {
+            name = name.substring(0, len - 1);
+        }
+    }
+    return name.toLocaleLowerCase("en");
+}
+
 function parseCnameWithRegex(input: string): CnameActiveArray {
     const result: CnameActiveArray = [];
     for (const line of input.split("\n")) {
@@ -274,7 +285,7 @@ function parseCnameWithRegex(input: string): CnameActiveArray {
             if (DEBUG) unparsableSet.add(trimmedLine);
             continue;
         }
-        const name: string = (JSON.parse(match[1]) as string).toLocaleLowerCase("en");
+        const name: string = stripAndLowerName(JSON.parse(match[1]) as string);
         const server: string = JSON.parse(match[2]);
         const comment = match[3] || null;
         result.push([name, server, comment]);
