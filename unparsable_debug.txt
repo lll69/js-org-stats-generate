@@ -1,5 +1,4 @@
 
-"hytalebrasil: "hytalebrasil.github.io",
 *
 *              (all the lines marked with '// noCF?' are from a time when a requester had to explicitly opt-in;
 *              (all the lines marked with '//noCF?' are from a time when a requester had to explicitly opt-in;
@@ -79,8 +78,6 @@
 ***** ACTIVE SUBDOMAINS
 ***** ACTIVE SUBDOMAINS (NS records)
 */
-, "flowchart: "adrai.github.io/flowchart.js"
-,"thingamajig: "hasharray.github.io/thingamajig"
 /*
 var cnames_active = {
 var ns_active = {
