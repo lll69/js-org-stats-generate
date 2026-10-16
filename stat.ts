@@ -4,6 +4,8 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFi
 import { Deque } from "@datastructures-js/deque";
 import { stderr } from "node:process";
 
+const DEBUG = true;
+
 type HistoryItem = {
     "time": number,
     "type": string,
@@ -261,12 +263,16 @@ class ObjectReader {
 }
 const objectReader = new ObjectReader();
 
+const unparsableSet = new Set<string>();
+
 function parseCnameWithRegex(input: string): CnameActiveArray {
     const result: CnameActiveArray = [];
     for (const line of input.split("\n")) {
         const match = line.trim().match(cnameRegex);
-        if (match == null)
+        if (match == null) {
+            if (DEBUG) unparsableSet.add(line.trim());
             continue;
+        }
         const name: string = (JSON.parse(match[1]) as string).toLocaleLowerCase("en");
         const server: string = JSON.parse(match[2]);
         const comment = match[3] || null;
@@ -279,8 +285,10 @@ function parseNsWithRegex(input: string): NsActiveArray {
     const result: NsActiveArray = [];
     for (const line of input.split("\n")) {
         const match = line.trim().match(nsRegex);
-        if (match == null)
+        if (match == null) {
+            if (DEBUG) unparsableSet.add(line.trim());
             continue;
+        }
         const name: string = (JSON.parse(match[1]) as string).toLocaleLowerCase("en");
         const servers: string[] = JSON.parse(match[2]);
         const comment = match[3] || null;
@@ -746,8 +754,11 @@ async function main() {
     content += `- **Live subdomains:** ${Object.keys(timeDomains).length - 1}\n`;  // remove `^updateTime`
     writeFileSync("dist/README.md", content, { encoding: "utf-8" });
 
-    copyFileSync("js.org/cnames_active.js", "dist/original_js.org_cnames_active.js");
-    copyFileSync("js.org/ns_active.js", "dist/original_js.org_ns_active.js");
+    if (DEBUG) {
+        copyFileSync("js.org/cnames_active.js", "dist/original_js.org_cnames_active.js");
+        copyFileSync("js.org/ns_active.js", "dist/original_js.org_ns_active.js");
+        writeFileSync("dist/unparsable.txt", [...unparsableSet].sort().join("\n"), { encoding: "utf-8" });
+    }
 
     await objectReader.close();
 }
