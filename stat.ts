@@ -169,7 +169,7 @@ function fillMergeAndFullItems() {
     }
 }
 
-const cnameRegex = /^,?\s*("[A-Za-z0-9_\-\.\\]*")\s*\:\s*("[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?/;
+const cnameRegex = /^,?\s*("[A-Za-z0-9_\-\.\\]*")\s*\:\s*("(?:https?:\/\/)?[A-Za-z0-9_/\-\.\\]+")\s*,?\s*(?:\/\/\s*(.+))?/;
 const nsRegex = /^,?\s*("[A-Za-z0-9_\-\.\\]+")\s*\:\s*(\[.+\])\s*,?\s*(\/\/.+)?/;
 const cnameDict: Record<string, any> = {};
 
