@@ -4,6 +4,7 @@ Stats for js.org
 
 ## Notes
 
+* [Creation PRs that can't be found by diffing commits](null_pulls.md)
 * cnames_active.js has item `"": "js-org.github.io"`
 * Commit [a13e16d](https://github.com/js-org/js.org/commit/a13e16d227b05b1344d9de9923fdeec98184eca9) and [533ea49](https://github.com/js-org/js.org/commit/533ea491945c5a7d2393e6ba5998b8b14688287a) created duplicated records.
 * Commit [966ab7f](https://github.com/js-org/js.org/commit/966ab7f0c6fd8390aa09c5720b919760de12a212) formatted comments.
@@ -14,6 +15,7 @@ Stats for js.org
 * `salvattore` has duplicated records with same mapping, removed in commit [1909bee](https://github.com/js-org/js.org/commit/1909beed06c886c9864005652b97eaac2c6220f2).
 * `medit` has duplicated records with same mapping, removed in commit [66f077d](https://github.com/js-org/js.org/commit/66f077dd15acb7f17f029a9af6dd8612dfe61e64).
 * `mina` has duplicated records with different mapping, created in commit [ce463b0](https://github.com/js-org/js.org/commit/ce463b0d94534df03715974264a0ca568649538a) and removed in commit [966ab7f](https://github.com/js-org/js.org/commit/966ab7f0c6fd8390aa09c5720b919760de12a212).
+* cnames_active.js has item `,"aligos.js.org": "aligos.github.io"` & `,"proteic.js.org":"proteus-h2020.github.io/proteic"` & `"webpack-config-plugins.js.org": "namics.github.io/webpack-config-plugins",`
 
 Malformed lines:
 ```
