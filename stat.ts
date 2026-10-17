@@ -130,7 +130,7 @@ function bfs(headId: string, firstId: string, shaToPullNumMap: ReturnType<typeof
         if (force) {
             throw new Error(`Unexpected Tail ${headId}-${firstId}`);
         }
-        console.warn(`Cannot find a preferred path from ${headId} to ${firstId}, it might be a fast-forward merge, continuing anyway!`);
+        console.warn(`[WARN] Cannot find a preferred path from ${headId} to ${firstId}, it might be a fast-forward merge, continuing anyway!`);
         return bfs(headId, firstId, shaToPullNumMap, true);
     }
     const result: string[] = [];
@@ -245,7 +245,7 @@ class ObjectReader {
             });
         });
         if (DEBUG && (++this.readObjectCount) % 1000 == 0) {
-            console.log("Reading Object #" + this.readObjectCount);
+            console.log("[DEBUG] Reading Object #" + this.readObjectCount);
         }
         this.proc.stdin.write(Buffer.from(refName + "\n", "utf8"));
         this.tryParseBuffer();
@@ -279,11 +279,19 @@ function stripAndLowerName(name: string): string {
     return name.toLocaleLowerCase("en");
 }
 
+function logUnparsable(line: string) {
+    const oldLen = unparsableSet.size;
+    unparsableSet.add(line);
+    if (unparsableSet.size !== oldLen) {
+        console.log("[DEBUG] Unparsable line:", line);
+    }
+}
+
 function logMalformed(line: string) {
     const oldLen = malformedSet.size;
     malformedSet.add(line);
     if (malformedSet.size !== oldLen) {
-        console.log("Malformed line:", line);
+        console.log("[DEBUG] Malformed line:", line);
     }
 }
 
@@ -299,7 +307,7 @@ function parseCnameWithRegex(input: string): CnameActiveArray {
                 malformedString = true;
                 match = trimmedLine.match(cnameRegexMalformed2);
                 if (match == null) {
-                    if (DEBUG) unparsableSet.add(trimmedLine);
+                    if (DEBUG) logUnparsable(trimmedLine);
                     continue;
                 } else {
                     if (DEBUG) logMalformed(trimmedLine);
