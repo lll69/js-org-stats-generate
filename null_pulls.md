@@ -1,9 +1,9 @@
 # Creation PRs that can't be found by diffing commits
 
 *	dns	(internal page)
-*	radial	https://github.com/js-org/js.org/pulls/3	https://github.com/js-org/js.org/commit/3941d1f74b48597ec25974c192c803d289f5003d
+*	radial	https://github.com/js-org/js.org/pull/3	https://github.com/js-org/js.org/commit/3941d1f74b48597ec25974c192c803d289f5003d
 *	logo	(internal page)
-*	saturation	https://github.com/js-org/js.org/pulls/8	https://github.com/js-org/js.org/commit/3b4700d5c589cd58b3cca98398a9ff66850ca2b5
+*	saturation	https://github.com/js-org/js.org/pull/8	https://github.com/js-org/js.org/commit/3b4700d5c589cd58b3cca98398a9ff66850ca2b5
 *	cordova-multiplatform-template	https://github.com/js-org/js.org/pull/14	https://github.com/js-org/js.org/commit/3d38e0c5f71c9310dd049a34b377294d51a3b8b8
 *	frzr	https://github.com/js-org/js.org/pull/43	https://github.com/js-org/js.org/commit/3a2f98dd6bd0ada2e5cab1c68df5db519da5eae1
 *	linuxaddict	https://github.com/js-org/js.org/pull/46	https://github.com/js-org/js.org/commit/8c455500c7d88608af363b247cbc75123b33ada2
