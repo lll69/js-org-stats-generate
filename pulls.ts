@@ -103,7 +103,6 @@ async function input(question: string): Promise<string> {
         }
         totalParsedPulls += parsedPulls;
         console.log(`Parsed ${parsedPulls} pulls in page ${currentPage} with PR Range ${minPullNum}-${maxPullNum}`);
-        await sleep(1000);
         currentPage += 1;
     }
 
