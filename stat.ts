@@ -87,10 +87,6 @@ const disallowedCommits = [
     // The following Git commits short-circuited the normal history.
     "6adfd9149629ca99f9a8e9771f8f587e96f1d83a",  // Remove concurrency from validate workflow
     "bebcb082418bfc5876889c2bd5de40a4c15065dc",  // Enable concurrency for validate workflow
-
-    // The following Git commits created duplicate records.
-    "a13e16d227b05b1344d9de9923fdeec98184eca9",  // cleanup and sort
-    "533ea491945c5a7d2393e6ba5998b8b14688287a",  // cleanup and sort
 ];
 
 
