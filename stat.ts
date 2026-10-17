@@ -276,6 +276,9 @@ function stripAndLowerName(name: string): string {
             name = name.substring(0, len - 1);
         }
     }
+    if (name === "aligos.js.org") { // process this manually since there are only one *.js.org name
+        name = "aligos";
+    }
     return name.toLocaleLowerCase("en");
 }
 
