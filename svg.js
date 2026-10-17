@@ -10,6 +10,7 @@ const INPUT_FILE = path.join("dist", "times.json");
 const INPUT_FILE_PR_MERGE = path.join("dist", "prMergeTimes.json");
 const OUTPUT_FILE = path.join("dist", "domains_and_prs.svg");
 const OUTPUT_FILE_MONTHLY = path.join("dist", "monthly_stats.svg");
+const OUTPUT_FILE_MONTHLY_JSON = path.join("dist", "monthly_stats.json");
 
 const WIDTH = 1600;
 const HEIGHT = 900;
@@ -439,6 +440,16 @@ function main() {
 
   fs.writeFileSync(OUTPUT_FILE_MONTHLY, generateSvgMultipleWithPercent({ x: xMonth, valuesArray: [prMonthTotal, subdomainMonth, prMonthMergeRate], specialDays, title: "JS.ORG Monthly Stats", labels: ["Monthly PR Created", "Monthly Subdomain Added", "Monthly PR Merge Rate (%)"] }), "utf8");
   console.log(`Generated ${OUTPUT_FILE_MONTHLY}`);
+
+  const monthlyJsonContent = {
+    "^updateTime": raw["^updateTime"],
+    xMonth: xMonth.map(x => x / 1000),
+    prMonthMergeRate: prMonthMergeRate,
+    prMonthTotal: prMonthTotal,
+    subdomainMonth: subdomainMonth,
+  }
+  fs.writeFileSync(OUTPUT_FILE_MONTHLY_JSON, JSON.stringify(monthlyJsonContent), "utf8");
+  console.log(`Generated ${OUTPUT_FILE_MONTHLY_JSON}`);
 }
 
 try {
