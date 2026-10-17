@@ -272,12 +272,15 @@ function stripAndLowerName(name: string): string {
             name = name.substring(0, len - 1);
         }
     }
-    // process these manually since there are only 2 *.js.org names
+    // process these manually since there are only 3 *.js.org names
     if (name === "aligos.js.org") {
         name = "aligos";
     }
     if (name === "proteic.js.org") {
         name = "proteic";
+    }
+    if (name === "webpack-config-plugins.js.org") {
+        name = "webpack-config-plugins";
     }
     return name.toLocaleLowerCase("en");
 }
