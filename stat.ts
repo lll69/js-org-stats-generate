@@ -244,7 +244,7 @@ class ObjectReader {
                 resolve(result);
             });
         });
-        if ((++this.readObjectCount) % 1000 == 0) {
+        if (DEBUG && (++this.readObjectCount) % 1000 == 0) {
             console.log("Reading Object #" + this.readObjectCount);
         }
         this.proc.stdin.write(Buffer.from(refName + "\n", "utf8"));
@@ -266,6 +266,7 @@ class ObjectReader {
 const objectReader = new ObjectReader();
 
 const unparsableSet = new Set<string>();
+const malformedSet = new Set<string>();
 
 function stripAndLowerName(name: string): string {
     const len = name.length;
@@ -279,7 +280,11 @@ function stripAndLowerName(name: string): string {
 }
 
 function logMalformed(line: string) {
-    console.log("Malformed line:", line);
+    const oldLen = malformedSet.size;
+    malformedSet.add(line);
+    if (malformedSet.size !== oldLen) {
+        console.log("Malformed line:", line);
+    }
 }
 
 function parseCnameWithRegex(input: string): CnameActiveArray {
@@ -297,10 +302,10 @@ function parseCnameWithRegex(input: string): CnameActiveArray {
                     if (DEBUG) unparsableSet.add(trimmedLine);
                     continue;
                 } else {
-                    logMalformed(trimmedLine);
+                    if (DEBUG) logMalformed(trimmedLine);
                 }
             } else {
-                logMalformed(trimmedLine);
+                if (DEBUG) logMalformed(trimmedLine);
             }
         }
         const name: string = stripAndLowerName(malformedString ? JSON.parse(`"${match[1]}"`) : JSON.parse(match[1]));
