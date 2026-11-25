@@ -52,7 +52,7 @@ async function input(question: string): Promise<string> {
         const resp = await fetch(url, { headers: headers });
         if (resp.status != 200 && resp.status != 304) {
             const currentTime = Date.now();
-            const resetTime = Number(resp.headers.get("x-ratelimit-reset") || (currentTime / 1000 + 10)) * 1000 - currentTime;
+            const resetTime = Math.min(30000, Number(resp.headers.get("x-ratelimit-reset") || (currentTime / 1000 + 10)) * 1000 - currentTime);
             console.log(`status=${resp.status}, sleep ${resetTime} ms`);
             await sleep(resetTime);
             tries += 1;
