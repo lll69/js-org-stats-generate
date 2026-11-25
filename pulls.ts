@@ -49,17 +49,27 @@ async function input(question: string): Promise<string> {
             exit(1);
         }
         const url = `https://api.github.com/repos/js-org/js.org/pulls?state=all&per_page=100&page=${currentPage}`;
-        const resp = await fetch(url, { headers: headers });
-        if (resp.status != 200 && resp.status != 304) {
-            const currentTime = Date.now();
-            const resetTime = Math.min(30000, Number(resp.headers.get("x-ratelimit-reset") || (currentTime / 1000 + 10)) * 1000 - currentTime);
-            console.log(`status=${resp.status}, sleep ${resetTime} ms`);
-            await sleep(resetTime);
+        let resp: Response;
+        let pulls: any[];
+        try {
+            resp = await fetch(url, { headers: headers });
+            if (resp.status != 200 && resp.status != 304) {
+                const currentTime = Date.now();
+                const resetTime = Math.min(30000, Number(resp.headers.get("x-ratelimit-reset") || (currentTime / 1000 + 10)) * 1000 - currentTime);
+                console.log(`status=${resp.status}, sleep ${resetTime} ms`);
+                await sleep(resetTime);
+                tries += 1;
+                continue;
+            }
+            pulls = await resp.json() as any[];
+        } catch (e) {
+            console.log("Fetch error:", e);
+            console.log("Sleep 1s");
+            await sleep(1000);
             tries += 1;
             continue;
         }
         tries = 0;
-        const pulls = await resp.json() as any[];
         let parsedPulls = 0
         if (pulls.length == 0)
             break;
